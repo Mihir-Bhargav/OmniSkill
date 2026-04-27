@@ -4,7 +4,7 @@
 
 V1 targets LLMs that have native MCP connectors:
 - **ChatGPT Web** (OpenAI) — connects via SSE over HTTP
-- **Claude Code** (CLI) — connects via stdio
+Full focus for only ChatGPT web and FOCUS more on simplifying user actions needed to set up (Non-technical users must be able to use it, hopefully) 
 
 Gemini is out of scope for V1.
 
@@ -15,8 +15,6 @@ Gemini is out of scope for V1.
 ```
 Client Environments          OmniSkill Bridge              Local Machine
 ─────────────────────        ────────────────────          ──────────────
-Claude Code (CLI)   ──────▶  Stdio Transport (JSON-RPC) ──▶
-                                                            Skill Translator
 ChatGPT Web         ──────▶  SSE Transport               ──▶  & Registry
                              └─▶ Cloudflare/ngrok tunnel      │
                                                               ├── Skill packages (.ZIP)
