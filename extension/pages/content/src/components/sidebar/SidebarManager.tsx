@@ -9,7 +9,7 @@ import { useUIStore } from '@src/stores/ui.store';
 // Helper function to get preferences from Zustand store
 const getZustandPreferences = (): UserPreferences => {
   try {
-    const zustandState = JSON.parse(localStorage.getItem('mcp-super-assistant-ui-store') || '{}');
+    const zustandState = JSON.parse(localStorage.getItem('omniskill-ui-store') || '{}');
     if (zustandState.state && zustandState.state.preferences) {
       return zustandState.state.preferences;
     }
@@ -229,7 +229,7 @@ export class SidebarManager extends BaseSidebarManager {
         }
 
         // Check MCP state and sidebar visibility preference separately
-        const zustandState = JSON.parse(localStorage.getItem('mcp-super-assistant-ui-store') || '{}');
+        const zustandState = JSON.parse(localStorage.getItem('omniskill-ui-store') || '{}');
         const mcpEnabled = zustandState.state?.mcpEnabled ?? true; // Default to enabled for first-time users
 
         // Check if sidebar visibility state exists in storage
@@ -581,10 +581,10 @@ export class SidebarManager extends BaseSidebarManager {
       
       // Fallback to direct localStorage manipulation if store access fails
       try {
-        const zustandState = JSON.parse(localStorage.getItem('mcp-super-assistant-ui-store') || '{}');
+        const zustandState = JSON.parse(localStorage.getItem('omniskill-ui-store') || '{}');
         if (zustandState.state && zustandState.state.sidebar) {
           zustandState.state.sidebar.isVisible = isVisible;
-          localStorage.setItem('mcp-super-assistant-ui-store', JSON.stringify(zustandState));
+          localStorage.setItem('omniskill-ui-store', JSON.stringify(zustandState));
           logMessage(`[SidebarManager] Fallback: Synced Zustand visibility state to: ${isVisible}`);
         } else {
           logMessage('[SidebarManager] Could not find Zustand sidebar state to update');

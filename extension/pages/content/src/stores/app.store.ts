@@ -95,7 +95,7 @@ export const useAppStore = create<AppState>()(
         },
       }),
       {
-        name: 'mcp-super-assistant-app-store', // Unique name for localStorage
+        name: 'omniskill-app-store', // Unique name for localStorage
         storage: createJSONStorage(() => localStorage), // Specify localStorage
         partialize: (state) => ({
           // Only persist globalSettings and sidebarWidth from uiStore (example)

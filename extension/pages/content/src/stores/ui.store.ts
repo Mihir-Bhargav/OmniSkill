@@ -295,7 +295,7 @@ export const useUIStore = create<UIState>()(
         },
       }),
       {
-        name: 'mcp-super-assistant-ui-store',
+        name: 'omniskill-ui-store',
         storage: createJSONStorage(() => localStorage),
         partialize: (state) => ({
           // Persist sidebar state and user preferences

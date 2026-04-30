@@ -330,6 +330,10 @@ function collectDemographicData(): { [key: string]: any } {
     // Initialize automation service and other services
     await initializeAllServices();
 
+    // Initialize slash command handler — /skill-name → instant MCP execution
+    const { initSlashCommands } = await import('./slash-commands');
+    initSlashCommands();
+
     logMessage('Application initialized successfully with Session 10 architecture');
 
     // Expose plugin registry globally for adapter access
