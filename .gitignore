@@ -14,3 +14,4 @@ skills/*.skill
 .pytest_cache/
 .coverage
 htmlcov/
+omniskill-tray.log
