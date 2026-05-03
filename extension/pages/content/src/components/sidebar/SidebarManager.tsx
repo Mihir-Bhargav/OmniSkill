@@ -253,19 +253,8 @@ export class SidebarManager extends BaseSidebarManager {
         logMessage('[SidebarManager] MCP is enabled, initializing sidebar...');
         await this.initializeCollapsedStateWithErrorHandling();
 
-        // Now control visibility based on user preference
-        if (!lastVisibleState) {
-          // User wants sidebar UI hidden - hide it but keep it functional
-          logMessage('[SidebarManager] Hiding sidebar UI (MCP still active in background)');
-          if (this.shadowHost) {
-            this.shadowHost.style.display = 'none';
-            this.shadowHost.style.opacity = '0';
-            this._isVisible = false;
-          }
-          logMessage('[SidebarManager] Sidebar UI hidden (MCP active in background)');
-        } else {
-          logMessage('[SidebarManager] Sidebar shown successfully with preferences restored');
-        }
+        // Always show the sidebar on page load — user can close it if not needed
+        logMessage('[SidebarManager] Sidebar shown successfully');
       } catch (error) {
         logMessage(
           `[SidebarManager] Error during initialization: ${error instanceof Error ? error.message : String(error)}`,

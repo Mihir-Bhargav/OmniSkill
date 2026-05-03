@@ -175,6 +175,10 @@ export function hide() {
   onSelect = null;
 }
 
+export function getVisibleToolNames(): string[] {
+  return visibleTools.map(t => t.name);
+}
+
 export function isVisible(): boolean {
   return !!popup && popup.style.display !== 'none';
 }

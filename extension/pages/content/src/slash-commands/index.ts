@@ -24,6 +24,27 @@ const SLASH_RE = /^\/([a-zA-Z0-9_-]*)$/;
 
 let _submitting = false;
 
+// Prefetch cache — populated when autocomplete opens, consumed on selection
+const _prefetchCache = new Map<string, Promise<string>>();
+
+// Side-state for sites where DOM-based pill is unreliable (ChatGPT/ProseMirror).
+// Stores the loaded skill until the next Enter press, then consumed.
+let _pendingSkill: { name: string; content: string } | null = null;
+
+function prefetchSkills(skillNames: string[]): void {
+  for (const name of skillNames) {
+    if (_prefetchCache.has(name)) continue;
+    if (!mcpClient.isReady()) break;
+    _prefetchCache.set(
+      name,
+      mcpClient.callTool(name, {}).then(extractText).catch(() => {
+        _prefetchCache.delete(name);
+        return '';
+      })
+    );
+  }
+}
+
 // ── Input helpers ──────────────────────────────────────────────────────────────
 
 function getInputText(el: Element): string {
@@ -31,15 +52,29 @@ function getInputText(el: Element): string {
   return (el as HTMLElement).innerText ?? '';
 }
 
-function setInputText(el: Element, text: string): void {
+function isChatGPT(): boolean {
+  return location.hostname.includes('chatgpt.com');
+}
+
+async function setInputText(el: Element, text: string): Promise<void> {
   el.focus();
   if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
     const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
     setter ? setter.call(el, text) : (el.value = text);
     el.dispatchEvent(new Event('input', { bubbles: true }));
-  } else {
+  } else if (isChatGPT()) {
+    // ProseMirror: never touch innerHTML — it re-initialises and breaks state.
+    // selectAll + insertText is the only reliable path that ProseMirror recognises.
     document.execCommand('selectAll', false, undefined);
     document.execCommand('insertText', false, text);
+    // Give ProseMirror one tick to process and enable the send button
+    await new Promise(r => setTimeout(r, 50));
+  } else {
+    // Gemini / other contenteditable — atomic single-mutation
+    const htmlEl = el as HTMLElement;
+    htmlEl.innerHTML = '';
+    htmlEl.appendChild(document.createTextNode(text));
+    htmlEl.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
   }
 }
 
@@ -49,6 +84,10 @@ function clearInput(el: Element): void {
     const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
     setter ? setter.call(el, '') : (el.value = '');
     el.dispatchEvent(new Event('input', { bubbles: true }));
+  } else if (isChatGPT()) {
+    // ProseMirror: selectAll + insertText('') is cleaner than selectAll + delete
+    document.execCommand('selectAll', false, undefined);
+    document.execCommand('insertText', false, '');
   } else {
     document.execCommand('selectAll', false, undefined);
     document.execCommand('delete', false, undefined);
@@ -57,10 +96,25 @@ function clearInput(el: Element): void {
 
 function submitInput(el: Element): void {
   _submitting = true;
-  el.dispatchEvent(new KeyboardEvent('keydown', {
-    key: 'Enter', code: 'Enter', keyCode: 13,
-    bubbles: true, cancelable: true,
-  }));
+  if (isChatGPT()) {
+    // ProseMirror ignores synthetic Enter keydown — click the send button directly
+    const sendBtn = document.querySelector<HTMLButtonElement>(
+      'button[data-testid="send-button"], button[aria-label*="Send message"]'
+    );
+    if (sendBtn && !sendBtn.disabled) {
+      sendBtn.click();
+    } else {
+      // Fallback: Enter keydown on the form element
+      el.closest('form')?.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true,
+      }));
+    }
+  } else {
+    el.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Enter', code: 'Enter', keyCode: 13,
+      bubbles: true, cancelable: true,
+    }));
+  }
   setTimeout(() => { _submitting = false; }, 300);
 }
 
@@ -83,43 +137,72 @@ function extractText(result: unknown): string {
 async function loadSkillIntoPill(el: Element, skillName: string): Promise<void> {
   try {
     logMessage(`[SlashCommands] Loading skill /${skillName} into pill`);
-    const raw = await mcpClient.callTool(skillName, {});
-    const content = extractText(raw);
+    const contentPromise = _prefetchCache.get(skillName) ?? mcpClient.callTool(skillName, {}).then(extractText);
+    _prefetchCache.delete(skillName);
+    const content = await contentPromise;
     const memoryHint = `[Use everything you already know about me from memory to personalise this session. Do not ask me to re-introduce myself.]\n\n`;
-    insertPillInInput(el, skillName, memoryHint + content);
+    const fullContent = memoryHint + content;
+
+    if (isChatGPT()) {
+      // ProseMirror normalises the DOM and removes unknown spans — store skill in side-state
+      // instead of embedding it in the editor DOM. Show display label via execCommand.
+      _pendingSkill = { name: skillName, content: fullContent };
+      clearInput(el);
+      document.execCommand('insertText', false, `⚡ ${skillName}`);
+      logMessage(`[SlashCommands] Pending skill set: /${skillName}`);
+    } else {
+      insertPillInInput(el, skillName, fullContent);
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     logMessage(`[SlashCommands] Failed to load /${skillName}: ${msg}`);
-    setInputText(el, `/${skillName}`); // Restore so user can retry
+    await setInputText(el, `/${skillName}`);
   }
 }
 
 async function submitWithPill(el: Element): Promise<void> {
+  // ChatGPT path — consume side-state
+  if (isChatGPT() && _pendingSkill) {
+    const { name: skillName, content: skillContent } = _pendingSkill;
+    _pendingSkill = null;
+
+    // Strip the display label to get any extra text the user typed
+    const rawText = getInputText(el);
+    const userText = rawText.replace(/^⚡\s*[\w-]+\s*/, '').trim();
+
+    const finalText = userText ? `${userText}\n\n---\n\n${skillContent}` : skillContent;
+
+    // setInputText does selectAll+insertText — no separate clearInput needed
+    await setInputText(el, finalText);
+    watchAndHideSubmittedContent(skillName, userText);
+    submitInput(el);
+    return;
+  }
+
+  // DOM pill path (Gemini, AI Studio, others)
   const extracted = extractFromInput(el);
   if (!extracted) return;
 
   const { skillContent, userText } = extracted;
-  const finalText = userText ? `${skillContent}\n\n${userText}` : skillContent;
+  const finalText = userText ? `${userText}\n\n---\n\n${skillContent}` : skillContent;
 
-  // Extract skill name from pill for chat hiding
   const pill = el.querySelector('.omniskill-pill');
-  const skillName = pill?.textContent?.replace('⚡ ', '').trim() ?? 'skill';
+  const skillName = pill?.textContent?.replace(/^\//, '').trim() ?? 'skill';
 
   if (isAIStudio()) {
     const injected = await injectSystemPrompt(skillContent);
     if (injected) {
       clearInput(el);
-      setInputText(el, userText || 'Begin.');
-      watchAndHideSubmittedContent(skillName);
+      await setInputText(el, userText || 'Begin.');
+      watchAndHideSubmittedContent(skillName, userText);
       submitInput(el);
       return;
     }
   }
 
-  // Standard: inject full content, submit, then hide in chat
   clearInput(el);
-  setInputText(el, finalText);
-  watchAndHideSubmittedContent(skillName);
+  await setInputText(el, finalText);
+  watchAndHideSubmittedContent(skillName, userText);
   submitInput(el);
 }
 
@@ -145,8 +228,15 @@ export function initSlashCommands(): void {
         autocomplete.hide();
         await loadSkillIntoPill(el, skillName);
       });
+      // Prefetch top visible skills in background — by the time user selects, content is ready
+      prefetchSkills(autocomplete.getVisibleToolNames().slice(0, 5));
     } else {
       autocomplete.hide();
+      // If user cleared the input entirely, discard pending skill
+      if (text === '' && _pendingSkill) {
+        _pendingSkill = null;
+        logMessage('[SlashCommands] Pending skill cleared (input emptied)');
+      }
     }
   }, true);
 
@@ -173,8 +263,8 @@ export function initSlashCommands(): void {
       (el as HTMLElement).isContentEditable;
     if (!isInput) return;
 
-    // If input has a pill, submit via pill handler
-    if (hasPill(el)) {
+    // If input has a pill (Gemini) or pending side-state skill (ChatGPT), intercept submit
+    if (hasPill(el) || _pendingSkill) {
       e.preventDefault();
       e.stopImmediatePropagation();
       await submitWithPill(el);

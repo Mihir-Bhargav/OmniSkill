@@ -4,7 +4,7 @@ from pathlib import Path
 import mcp.types as types
 
 from omniskill.skill.loader import SkillDefinition, load_skill
-from omniskill.skill.executor import run_skill
+from omniskill.skill.executor import run_skill, resolve_prompt_skill_content
 
 log = logging.getLogger("omniskill.registry")
 
@@ -19,14 +19,16 @@ class SkillRegistry:
     def __init__(self, skills_dirs: list[str]):
         self._dirs = [Path(d) for d in skills_dirs]
         self._skills: dict[str, SkillDefinition] = {}
+        self._prompt_cache: dict[str, str] = {}
 
     async def load(self) -> int:
         self._skills.clear()
+        self._prompt_cache.clear()
+
         for skills_dir in self._dirs:
             if not skills_dir.exists():
                 log.warning("skills_dir %s not found", skills_dir)
                 continue
-            # Recursively find all SKILL.md files
             for skill_md in skills_dir.rglob("SKILL.md"):
                 candidate = skill_md.parent
                 try:
@@ -35,7 +37,6 @@ class SkillRegistry:
                     log.info("Loaded skill: %s", defn.tool.name)
                 except Exception as e:
                     log.error("Failed to load %s: %s", candidate, e)
-            # Also pick up ZIP/skill packages at the top level
             for candidate in skills_dir.iterdir():
                 if candidate.suffix in (".zip", ".skill"):
                     try:
@@ -45,7 +46,15 @@ class SkillRegistry:
                     except Exception as e:
                         log.error("Failed to load %s: %s", candidate, e)
 
-        log.info("Registry loaded %d skill(s)", len(self._skills))
+        # Pre-resolve all prompt skills into cache — subsequent calls cost nothing
+        for name, defn in self._skills.items():
+            if defn.runtime == "prompt":
+                try:
+                    self._prompt_cache[name] = resolve_prompt_skill_content(defn)
+                except Exception as e:
+                    log.warning("Failed to pre-cache %s: %s", name, e)
+
+        log.info("Registry loaded %d skill(s), cached %d prompt skills", len(self._skills), len(self._prompt_cache))
         return len(self._skills)
 
     def as_mcp_tools(self) -> list[types.Tool]:
@@ -59,4 +68,5 @@ class SkillRegistry:
         if name not in self._skills:
             raise ValueError(f"Unknown skill: {name}")
 
-        return await run_skill(self._skills[name], arguments)
+        cached = self._prompt_cache.get(name)
+        return await run_skill(self._skills[name], arguments, cached)

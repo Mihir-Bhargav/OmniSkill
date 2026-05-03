@@ -157,30 +157,19 @@ export class SidebarPlugin implements AdapterPlugin {
    * Show the sidebar (respects user's last visibility preference)
    */
   async showSidebar(): Promise<void> {
-    // Prevent infinite loops
-    if (this.isShowingSidebar) {
-      this.context?.logger.warn('Sidebar already showing, skipping to prevent loop');
-      return;
-    }
-
     if (!this.sidebarManager) {
       await this.initializeSidebarManager();
     }
 
     if (this.sidebarManager) {
-      logger.debug('Showing sidebar (respects stored preferences)...');
-
-      // Set flag to prevent loops
       this.isShowingSidebar = true;
-
       try {
-        // Show sidebar with tool outputs (this method checks stored state and only shows if appropriate)
-        this.sidebarManager.showWithToolOutputs();
-
-        logger.debug('Sidebar show request completed');
+        // Use show() directly — bypasses the mcpEnabled/isVisible localStorage checks
+        // in showWithToolOutputs() that cause the sidebar to silently not appear.
+        await this.sidebarManager.show();
       } catch (error) {
         logger.error('Error showing sidebar:', error);
-        this.isShowingSidebar = false; // Reset flag on error
+        this.isShowingSidebar = false;
         throw error;
       }
     }
@@ -275,44 +264,42 @@ export class SidebarPlugin implements AdapterPlugin {
   private setupEventListeners(): void {
     if (!this.context) return;
 
-    // REMOVED: ui:sidebar-toggle listener to prevent circular dependency
-    // The plugin should only respond to external events, not its own actions
+    // Re-show sidebar on SPA navigation (ChatGPT, Gemini switch conversations via pushState)
+    const onNav = () => {
+      if (!this.isActive) return;
+      logger.debug('SPA navigation detected, re-showing sidebar');
+      this.showSidebar().catch(err => logger.error('Error re-showing after nav:', err));
+    };
 
-    // REMOVED: app:initialized listener to prevent duplicate auto-show
-    // Sidebar is already shown during activate(), no need for additional auto-show logic
+    const origPush = history.pushState.bind(history);
+    const origReplace = history.replaceState.bind(history);
+    history.pushState = (...args) => { origPush(...args); onNav(); };
+    history.replaceState = (...args) => { origReplace(...args); onNav(); };
+    window.addEventListener('popstate', onNav);
 
-    // Listen for site changes to reinitialize sidebar manager
+    this.cleanupFunctions.push(() => {
+      history.pushState = origPush;
+      history.replaceState = origReplace;
+      window.removeEventListener('popstate', onNav);
+    });
+
+    // Listen for cross-site changes (full navigations handled by plugin registry)
     const unsubscribeSiteChange = this.context.eventBus.on('app:site-changed', async (data) => {
       logger.debug(`Site changed to: ${data.hostname}`);
-
-      // Determine if this is actually a different site or just a URL change within the same site
       const currentSiteType = this.determineSiteType(data.hostname);
       const existingSiteType = this.sidebarManager ? this.determineSiteType(window.location.hostname) : null;
+      if (existingSiteType && currentSiteType === existingSiteType) return;
 
-      if (existingSiteType && currentSiteType === existingSiteType) {
-        logger.debug(`URL changed within same site (${currentSiteType}), preserving sidebar manager`);
-        return; // Don't destroy and recreate for same site
-      }
-
-      logger.debug(`Actual site change detected: ${existingSiteType} -> ${currentSiteType}`);
-
-      // Reset showing state
-      this.isShowingSidebar = false;
-
-      // Cleanup existing sidebar manager only if it's a different site
       if (this.sidebarManager) {
         this.sidebarManager.destroy();
         this.sidebarManager = null;
       }
-
-      // Reinitialize for new site
       if (this.isActive) {
         await this.initializeSidebarManager();
         await this.showSidebar();
       }
     });
 
-    // Store cleanup functions
     this.cleanupFunctions.push(unsubscribeSiteChange);
   }
 
@@ -320,12 +307,22 @@ export class SidebarPlugin implements AdapterPlugin {
   onPageChanged?(url: string, oldUrl?: string): void {
     logger.debug(`Page changed from ${oldUrl} to ${url}`);
 
-    // Reinitialize sidebar manager if needed
-    if (this.isActive && oldUrl && new URL(url).hostname !== new URL(oldUrl).hostname) {
+    if (!this.isActive) return;
+
+    // Reset flag so showSidebar() is not skipped on SPA navigation
+    this.isShowingSidebar = false;
+
+    // Same host (SPA nav like ChatGPT conversation switch) — just re-show
+    if (oldUrl && new URL(url).hostname === new URL(oldUrl).hostname) {
+      this.showSidebar().catch(error => {
+        logger.error('Error re-showing after SPA navigation:', error);
+      });
+    } else {
+      // Different host — full reinit
       this.initializeSidebarManager().then(() => {
         this.showSidebar();
       }).catch(error => {
-        logger.error('Error reinitializing after page change:', error);
+        logger.error('Error reinitializing after host change:', error);
       });
     }
   }

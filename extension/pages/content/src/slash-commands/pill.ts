@@ -8,18 +8,10 @@ import { logMessage } from '../utils/helpers';
 
 const PILL_CLASS = 'omniskill-pill';
 const PILL_STYLE = [
-  'display:inline-flex',
-  'align-items:center',
-  'background:#e8f0fe',
   'color:#1a73e8',
-  'border-radius:16px',
-  'padding:2px 10px',
-  'font-size:13px',
-  'font-weight:600',
-  'margin:0 2px',
+  'font-weight:700',
   'cursor:default',
   'user-select:none',
-  'vertical-align:middle',
 ].join(';');
 
 const HIDDEN_CONTENT_ATTR = 'data-omniskill-content';
@@ -51,7 +43,7 @@ export function insertPillInInput(el: Element, skillName: string, skillContent: 
   pill.setAttribute('contenteditable', 'false');
   pill.setAttribute(HIDDEN_CONTENT_ATTR, skillContent);
   pill.setAttribute('style', PILL_STYLE);
-  pill.textContent = `⚡ ${skillName}`;
+  pill.textContent = `/${skillName}`;
 
   // Insert pill + trailing space so user can keep typing
   const sel = window.getSelection();
@@ -102,84 +94,155 @@ export function hasPill(el: Element): boolean {
   return el.querySelectorAll(`.${PILL_CLASS}`).length > 0;
 }
 
-// ── Chat history hiding ────────────────────────────────────────────────────────
+// ── Chat history collapsing ───────────────────────────────────────────────────
+//
+// Strategy: inject an <div class="omniskill-label"> as the first child of the
+// user message container, then set display:none inline on every other child.
+// Inline styles survive React/Lit re-renders better than CSS classes.
+// A MutationObserver re-hides any new children Gemini streaming adds.
 
-const USER_MSG_SELECTORS = [
-  '.user-query-container', '.user-query',
-  'message-content[messagetype="human"]',
-  '[data-message-author-role="user"] .whitespace-pre-wrap',
-  '.user-prompt-container',
-  '[data-role="user"] .content',
+const FINGERPRINT = '[Use everything you already know about me from memory';
+const LABEL_CLASS = 'omniskill-label';
+
+// Ordered selector groups — each entry is [containerSelector, textSelector].
+// containerSelector: the stable parent we insert our label into.
+// textSelector: the child element we hide (relative to container).
+const SITE_CONFIGS = [
+  // Gemini: inject label before .query-text, hide .query-text itself
+  { container: 'user-query-content .query-content', text: '.query-text' },
+  // ChatGPT
+  { container: '[data-message-author-role="user"]', text: '.whitespace-pre-wrap' },
 ];
 
-let _observer: MutationObserver | null = null;
-let _pendingSkillName: string | null = null;
+let _findObserver: MutationObserver | null = null;
+let _persistObserver: MutationObserver | null = null;
 let _pendingHideTimer: ReturnType<typeof setTimeout> | null = null;
+let _collapsedDisplayText = '';
+let _activeLabel: HTMLElement | null = null;
 
-export function watchAndHideSubmittedContent(skillName: string): void {
-  _pendingSkillName = skillName;
+export function watchAndHideSubmittedContent(skillName: string, userText: string = ''): void {
   if (_pendingHideTimer) clearTimeout(_pendingHideTimer);
-  if (_observer) { _observer.disconnect(); _observer = null; }
+  if (_findObserver) { _findObserver.disconnect(); _findObserver = null; }
+  if (_persistObserver) { _persistObserver.disconnect(); _persistObserver = null; }
 
-  _observer = new MutationObserver(() => {
-    if (!_pendingSkillName) return;
-    const hidden = tryHideLatestUserMessage(_pendingSkillName);
-    if (hidden) {
-      _observer?.disconnect();
-      _observer = null;
-      _pendingSkillName = null;
+  _collapsedDisplayText = userText.trim() ? `/${skillName} ${userText.trim()}` : `/${skillName}`;
+  _activeLabel = null;
+
+  const existingContainers = new Set(findMatches().map(m => m.container));
+
+  // Phase 1: wait for the new message to appear with fingerprint
+  _findObserver = new MutationObserver(() => {
+    if (tryCollapse(existingContainers)) {
+      _findObserver?.disconnect();
+      _findObserver = null;
+      if (_pendingHideTimer) clearTimeout(_pendingHideTimer);
+      startPersistObserver();
     }
   });
+  _findObserver.observe(document.body, { childList: true, subtree: true });
 
-  _observer.observe(document.body, { childList: true, subtree: true });
+  if (tryCollapse(existingContainers)) {
+    _findObserver.disconnect();
+    _findObserver = null;
+    startPersistObserver();
+    return;
+  }
 
   _pendingHideTimer = setTimeout(() => {
-    _observer?.disconnect();
-    _observer = null;
-    _pendingSkillName = null;
-  }, 5000);
+    _findObserver?.disconnect();
+    _findObserver = null;
+    tryCollapseFallback();
+    startPersistObserver();
+  }, 8000);
 }
 
-function tryHideLatestUserMessage(skillName: string): boolean {
-  for (const sel of USER_MSG_SELECTORS) {
-    const msgs = Array.from(document.querySelectorAll(sel));
-    if (msgs.length === 0) continue;
-    const latest = msgs[msgs.length - 1] as HTMLElement;
-    if (latest.textContent && latest.textContent.length > 200 && !latest.dataset.omniskillHidden) {
-      collapseToChip(latest, skillName);
-      return true;
+interface SiteMatch {
+  container: HTMLElement;
+  textEl: HTMLElement;
+}
+
+function findMatches(): SiteMatch[] {
+  for (const cfg of SITE_CONFIGS) {
+    const containers = document.querySelectorAll<HTMLElement>(cfg.container);
+    if (containers.length === 0) continue;
+    const results: SiteMatch[] = [];
+    for (const container of Array.from(containers)) {
+      const textEl = container.querySelector<HTMLElement>(cfg.text);
+      if (textEl) results.push({ container, textEl });
     }
+    if (results.length > 0) return results;
+  }
+  return [];
+}
+
+function tryCollapse(existingContainers: Set<HTMLElement>): boolean {
+  for (const { container, textEl } of findMatches()) {
+    if (existingContainers.has(container)) continue;
+    if (!textEl.textContent?.includes(FINGERPRINT)) continue;
+    injectLabel(container, textEl);
+    return true;
   }
   return false;
 }
 
-function collapseToChip(el: HTMLElement, skillName: string): void {
-  const original = el.innerHTML;
-  el.dataset.omniskillHidden = 'true';
+function tryCollapseFallback(): void {
+  const all = findMatches();
+  for (let i = all.length - 1; i >= 0; i--) {
+    const { container, textEl } = all[i];
+    if (container.querySelector(`.${LABEL_CLASS}`)) continue;
+    if (!textEl.textContent?.includes(FINGERPRINT)) continue;
+    injectLabel(container, textEl);
+    return;
+  }
+}
 
-  // Replace with a pill + toggle
-  const chip = document.createElement('span');
-  chip.setAttribute('style', PILL_STYLE + ';cursor:pointer;');
-  chip.textContent = `⚡ ${skillName}`;
-  chip.title = 'Click to expand skill content';
+function injectLabel(container: HTMLElement, textEl: HTMLElement): void {
+  if (container.querySelector(`.${LABEL_CLASS}`)) return;
 
-  let expanded = false;
-  chip.addEventListener('click', () => {
-    expanded = !expanded;
-    if (expanded) {
-      el.innerHTML = original;
-      // Re-attach click to collapse again
-      const collapseBtn = document.createElement('span');
-      collapseBtn.setAttribute('style', PILL_STYLE + ';cursor:pointer;margin-left:6px;font-size:11px;');
-      collapseBtn.textContent = '▲ collapse';
-      collapseBtn.addEventListener('click', () => collapseToChip(el, skillName));
-      el.appendChild(collapseBtn);
-    } else {
-      collapseToChip(el, skillName);
+  const label = document.createElement('div');
+  label.className = LABEL_CLASS;
+  label.style.cssText = 'color:#1a73e8;font-weight:700;font-family:inherit;font-size:inherit;line-height:inherit;padding:8px 0;';
+  label.textContent = _collapsedDisplayText;
+
+  textEl.parentElement!.insertBefore(label, textEl);
+  textEl.style.setProperty('display', 'none', 'important');
+  _activeLabel = label;
+
+  logMessage(`[Pill] Injected label "${_collapsedDisplayText}", hid .${textEl.className.split(' ')[0]}`);
+}
+
+function startPersistObserver(): void {
+  if (_persistObserver) { _persistObserver.disconnect(); _persistObserver = null; }
+  if (!_activeLabel) return;
+
+  // Watch user-query-content — stable custom element Angular never replaces.
+  const host = _activeLabel.closest('user-query-content, [data-message-author-role="user"]') as HTMLElement;
+  if (!host) return;
+
+  _persistObserver = new MutationObserver(() => {
+    if (!host.isConnected) return;
+
+    if (_activeLabel && !_activeLabel.isConnected) {
+      // Angular wiped our label — find new .query-text and re-inject
+      logMessage(`[Pill] Label removed by re-render, re-injecting...`);
+      _activeLabel = null;
+      const newContainer = host.querySelector<HTMLElement>('.query-content');
+      const newTextEl = host.querySelector<HTMLElement>('.query-text');
+      if (newContainer && newTextEl && !newContainer.querySelector(`.${LABEL_CLASS}`)) {
+        injectLabel(newContainer, newTextEl);
+      }
+      return;
+    }
+
+    // Label present — re-hide textEl if Angular un-hid it
+    if (_activeLabel) {
+      const textEl = _activeLabel.nextElementSibling as HTMLElement | null;
+      if (textEl && textEl.style.display !== 'none') {
+        textEl.style.setProperty('display', 'none', 'important');
+      }
     }
   });
 
-  el.innerHTML = '';
-  el.appendChild(chip);
-  logMessage(`[Pill] Collapsed chat message for /${skillName}`);
+  _persistObserver.observe(host, { childList: true, subtree: true });
+  logMessage(`[Pill] Persist observer on <${host.tagName.toLowerCase()}>`);
 }
