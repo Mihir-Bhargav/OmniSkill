@@ -96,55 +96,51 @@ export function hasPill(el: Element): boolean {
 
 // ── Chat history collapsing ───────────────────────────────────────────────────
 //
-// Strategy: inject an <div class="omniskill-label"> as the first child of the
-// user message container, then set display:none inline on every other child.
-// Inline styles survive React/Lit re-renders better than CSS classes.
-// A MutationObserver re-hides any new children Gemini streaming adds.
+// Strategy: body overlay — Angular owns everything inside user-query-content,
+// but document.body is outside its reach. We:
+//   1. Hide the host element's content with a <style> using :nth-of-type
+//      so Angular stripping our attributes doesn't matter.
+//   2. Append a positioned <div> to document.body over the message rect.
+//   3. Reposition on scroll/resize. Stop once message is gone.
 
 const FINGERPRINT = '[Use everything you already know about me from memory';
-const LABEL_CLASS = 'omniskill-label';
 
-// Ordered selector groups — each entry is [containerSelector, textSelector].
-// containerSelector: the stable parent we insert our label into.
-// textSelector: the child element we hide (relative to container).
-const SITE_CONFIGS = [
-  // Gemini: inject label before .query-text, hide .query-text itself
-  { container: 'user-query-content .query-content', text: '.query-text' },
-  // ChatGPT
-  { container: '[data-message-author-role="user"]', text: '.whitespace-pre-wrap' },
+const HOST_SELECTORS = [
+  'user-query-content',
+  '[data-message-author-role="user"]',
 ];
 
+const HIDE_STYLE_ID = 'omniskill-hide-style';
+const OVERLAY_ID = 'omniskill-overlay';
+
 let _findObserver: MutationObserver | null = null;
-let _persistObserver: MutationObserver | null = null;
 let _pendingHideTimer: ReturnType<typeof setTimeout> | null = null;
 let _collapsedDisplayText = '';
-let _activeLabel: HTMLElement | null = null;
+let _targetHost: HTMLElement | null = null;
+let _rafId: number | null = null;
 
 export function watchAndHideSubmittedContent(skillName: string, userText: string = ''): void {
   if (_pendingHideTimer) clearTimeout(_pendingHideTimer);
   if (_findObserver) { _findObserver.disconnect(); _findObserver = null; }
-  if (_persistObserver) { _persistObserver.disconnect(); _persistObserver = null; }
+  removeOverlay();
 
   _collapsedDisplayText = userText.trim() ? `/${skillName} ${userText.trim()}` : `/${skillName}`;
-  _activeLabel = null;
+  _targetHost = null;
 
-  const existingContainers = new Set(findMatches().map(m => m.container));
+  const existingHosts = new Set(findHosts());
 
-  // Phase 1: wait for the new message to appear with fingerprint
   _findObserver = new MutationObserver(() => {
-    if (tryCollapse(existingContainers)) {
+    if (tryCollapse(existingHosts)) {
       _findObserver?.disconnect();
       _findObserver = null;
       if (_pendingHideTimer) clearTimeout(_pendingHideTimer);
-      startPersistObserver();
     }
   });
   _findObserver.observe(document.body, { childList: true, subtree: true });
 
-  if (tryCollapse(existingContainers)) {
+  if (tryCollapse(existingHosts)) {
     _findObserver.disconnect();
     _findObserver = null;
-    startPersistObserver();
     return;
   }
 
@@ -152,97 +148,115 @@ export function watchAndHideSubmittedContent(skillName: string, userText: string
     _findObserver?.disconnect();
     _findObserver = null;
     tryCollapseFallback();
-    startPersistObserver();
   }, 8000);
 }
 
-interface SiteMatch {
-  container: HTMLElement;
-  textEl: HTMLElement;
-}
-
-function findMatches(): SiteMatch[] {
-  for (const cfg of SITE_CONFIGS) {
-    const containers = document.querySelectorAll<HTMLElement>(cfg.container);
-    if (containers.length === 0) continue;
-    const results: SiteMatch[] = [];
-    for (const container of Array.from(containers)) {
-      const textEl = container.querySelector<HTMLElement>(cfg.text);
-      if (textEl) results.push({ container, textEl });
-    }
-    if (results.length > 0) return results;
+function findHosts(): HTMLElement[] {
+  for (const sel of HOST_SELECTORS) {
+    const nodes = document.querySelectorAll<HTMLElement>(sel);
+    if (nodes.length > 0) return Array.from(nodes);
   }
   return [];
 }
 
-function tryCollapse(existingContainers: Set<HTMLElement>): boolean {
-  for (const { container, textEl } of findMatches()) {
-    if (existingContainers.has(container)) continue;
-    if (!textEl.textContent?.includes(FINGERPRINT)) continue;
-    injectLabel(container, textEl);
+function tryCollapse(existingHosts: Set<HTMLElement>): boolean {
+  for (const host of findHosts()) {
+    if (existingHosts.has(host)) continue;
+    if (!host.textContent?.includes(FINGERPRINT)) continue;
+    collapseWithOverlay(host);
     return true;
   }
   return false;
 }
 
 function tryCollapseFallback(): void {
-  const all = findMatches();
+  const all = findHosts();
   for (let i = all.length - 1; i >= 0; i--) {
-    const { container, textEl } = all[i];
-    if (container.querySelector(`.${LABEL_CLASS}`)) continue;
-    if (!textEl.textContent?.includes(FINGERPRINT)) continue;
-    injectLabel(container, textEl);
+    const host = all[i];
+    if (!host.textContent?.includes(FINGERPRINT)) continue;
+    collapseWithOverlay(host);
     return;
   }
 }
 
-function injectLabel(container: HTMLElement, textEl: HTMLElement): void {
-  if (container.querySelector(`.${LABEL_CLASS}`)) return;
+function collapseWithOverlay(host: HTMLElement): void {
+  _targetHost = host;
 
-  const label = document.createElement('div');
-  label.className = LABEL_CLASS;
-  label.style.cssText = 'color:#1a73e8;font-weight:700;font-family:inherit;font-size:inherit;line-height:inherit;padding:8px 0;';
-  label.textContent = _collapsedDisplayText;
+  // Assign a stable index to this host among its tag siblings so we can
+  // target it with :nth-of-type in CSS (survives attribute stripping).
+  const siblings = Array.from(
+    host.parentElement?.children ?? []
+  ).filter(el => el.tagName === host.tagName);
+  const idx = siblings.indexOf(host) + 1; // 1-based for CSS
 
-  textEl.parentElement!.insertBefore(label, textEl);
-  textEl.style.setProperty('display', 'none', 'important');
-  _activeLabel = label;
+  // Inject a <style> that hides the content of this specific element.
+  // We scope by parent > tag:nth-of-type(N) — no attribute needed.
+  let styleEl = document.getElementById(HIDE_STYLE_ID) as HTMLStyleElement | null;
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = HIDE_STYLE_ID;
+    document.head.appendChild(styleEl);
+  }
 
-  logMessage(`[Pill] Injected label "${_collapsedDisplayText}", hid .${textEl.className.split(' ')[0]}`);
+  const parentTag = host.parentElement?.tagName.toLowerCase() ?? '*';
+  const hostTag = host.tagName.toLowerCase();
+  styleEl.textContent = `
+${parentTag} > ${hostTag}:nth-of-type(${idx}) {
+  visibility: hidden !important;
+}`;
+
+  // Create overlay on document.body
+  removeOverlay();
+  const overlay = document.createElement('div');
+  overlay.id = OVERLAY_ID;
+  overlay.style.cssText = [
+    'position:fixed',
+    'z-index:2147483647',
+    'pointer-events:none',
+    'color:#1a73e8',
+    'font-weight:700',
+    'font-family:Google Sans,Roboto,sans-serif',
+    'font-size:16px',
+    'line-height:1.5',
+    'background:transparent',
+    'display:flex',
+    'align-items:center',
+  ].join(';');
+  overlay.textContent = _collapsedDisplayText;
+  document.body.appendChild(overlay);
+
+  positionOverlay(host, overlay);
+  startRepositioning(host, overlay);
+
+  logMessage(`[Pill] Overlay collapse for "${_collapsedDisplayText}" (nth-of-type: ${idx})`);
 }
 
-function startPersistObserver(): void {
-  if (_persistObserver) { _persistObserver.disconnect(); _persistObserver = null; }
-  if (!_activeLabel) return;
+function positionOverlay(host: HTMLElement, overlay: HTMLElement): void {
+  const rect = host.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) return;
+  overlay.style.top = `${rect.top}px`;
+  overlay.style.left = `${rect.left}px`;
+  overlay.style.width = `${rect.width}px`;
+  overlay.style.height = `${rect.height}px`;
+}
 
-  // Watch user-query-content — stable custom element Angular never replaces.
-  const host = _activeLabel.closest('user-query-content, [data-message-author-role="user"]') as HTMLElement;
-  if (!host) return;
+function startRepositioning(host: HTMLElement, overlay: HTMLElement): void {
+  if (_rafId !== null) cancelAnimationFrame(_rafId);
 
-  _persistObserver = new MutationObserver(() => {
-    if (!host.isConnected) return;
-
-    if (_activeLabel && !_activeLabel.isConnected) {
-      // Angular wiped our label — find new .query-text and re-inject
-      logMessage(`[Pill] Label removed by re-render, re-injecting...`);
-      _activeLabel = null;
-      const newContainer = host.querySelector<HTMLElement>('.query-content');
-      const newTextEl = host.querySelector<HTMLElement>('.query-text');
-      if (newContainer && newTextEl && !newContainer.querySelector(`.${LABEL_CLASS}`)) {
-        injectLabel(newContainer, newTextEl);
-      }
+  const tick = () => {
+    if (!host.isConnected || !overlay.isConnected) {
+      removeOverlay();
       return;
     }
+    positionOverlay(host, overlay);
+    _rafId = requestAnimationFrame(tick);
+  };
+  _rafId = requestAnimationFrame(tick);
+}
 
-    // Label present — re-hide textEl if Angular un-hid it
-    if (_activeLabel) {
-      const textEl = _activeLabel.nextElementSibling as HTMLElement | null;
-      if (textEl && textEl.style.display !== 'none') {
-        textEl.style.setProperty('display', 'none', 'important');
-      }
-    }
-  });
-
-  _persistObserver.observe(host, { childList: true, subtree: true });
-  logMessage(`[Pill] Persist observer on <${host.tagName.toLowerCase()}>`);
+function removeOverlay(): void {
+  if (_rafId !== null) { cancelAnimationFrame(_rafId); _rafId = null; }
+  const existing = document.getElementById(OVERLAY_ID);
+  if (existing) existing.remove();
+  _targetHost = null;
 }
