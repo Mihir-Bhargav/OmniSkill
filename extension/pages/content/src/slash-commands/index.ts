@@ -5,8 +5,7 @@
  *   1. User types /skill-name → autocomplete popup appears
  *   2. User selects → MCP skill is called, pill inserted in input
  *   3. User can keep typing after the pill
- *   4. User presses Enter → full content + user text submitted
- *   5. Chat message collapses to pill — AI has full context, user sees clean UI
+ *   4. User presses Enter → full skill content + user text submitted as-is
  */
 
 import { mcpClient } from '../core/mcp-client';
@@ -17,7 +16,6 @@ import {
   insertPillInInput,
   extractFromInput,
   hasPill,
-  watchAndHideSubmittedContent,
 } from './pill';
 
 const SLASH_RE = /^\/([a-zA-Z0-9_-]*)$/;
@@ -27,8 +25,7 @@ let _submitting = false;
 // Prefetch cache — populated when autocomplete opens, consumed on selection
 const _prefetchCache = new Map<string, Promise<string>>();
 
-// Side-state for sites where DOM-based pill is unreliable (ChatGPT/ProseMirror).
-// Stores the loaded skill until the next Enter press, then consumed.
+// Side-state for ChatGPT/ProseMirror where DOM pill is stripped by the editor.
 let _pendingSkill: { name: string; content: string } | null = null;
 
 function prefetchSkills(skillNames: string[]): void {
@@ -63,14 +60,10 @@ async function setInputText(el: Element, text: string): Promise<void> {
     setter ? setter.call(el, text) : (el.value = text);
     el.dispatchEvent(new Event('input', { bubbles: true }));
   } else if (isChatGPT()) {
-    // ProseMirror: never touch innerHTML — it re-initialises and breaks state.
-    // selectAll + insertText is the only reliable path that ProseMirror recognises.
     document.execCommand('selectAll', false, undefined);
     document.execCommand('insertText', false, text);
-    // Give ProseMirror one tick to process and enable the send button
     await new Promise(r => setTimeout(r, 50));
   } else {
-    // Gemini / other contenteditable — atomic single-mutation
     const htmlEl = el as HTMLElement;
     htmlEl.innerHTML = '';
     htmlEl.appendChild(document.createTextNode(text));
@@ -85,7 +78,6 @@ function clearInput(el: Element): void {
     setter ? setter.call(el, '') : (el.value = '');
     el.dispatchEvent(new Event('input', { bubbles: true }));
   } else if (isChatGPT()) {
-    // ProseMirror: selectAll + insertText('') is cleaner than selectAll + delete
     document.execCommand('selectAll', false, undefined);
     document.execCommand('insertText', false, '');
   } else {
@@ -97,14 +89,12 @@ function clearInput(el: Element): void {
 function submitInput(el: Element): void {
   _submitting = true;
   if (isChatGPT()) {
-    // ProseMirror ignores synthetic Enter keydown — click the send button directly
     const sendBtn = document.querySelector<HTMLButtonElement>(
       'button[data-testid="send-button"], button[aria-label*="Send message"]'
     );
     if (sendBtn && !sendBtn.disabled) {
       sendBtn.click();
     } else {
-      // Fallback: Enter keydown on the form element
       el.closest('form')?.dispatchEvent(new KeyboardEvent('keydown', {
         key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true,
       }));
@@ -140,18 +130,14 @@ async function loadSkillIntoPill(el: Element, skillName: string): Promise<void> 
     const contentPromise = _prefetchCache.get(skillName) ?? mcpClient.callTool(skillName, {}).then(extractText);
     _prefetchCache.delete(skillName);
     const content = await contentPromise;
-    const memoryHint = `[Use everything you already know about me from memory to personalise this session. Do not ask me to re-introduce myself.]\n\n`;
-    const fullContent = memoryHint + content;
 
     if (isChatGPT()) {
-      // ProseMirror normalises the DOM and removes unknown spans — store skill in side-state
-      // instead of embedding it in the editor DOM. Show display label via execCommand.
-      _pendingSkill = { name: skillName, content: fullContent };
+      _pendingSkill = { name: skillName, content };
       clearInput(el);
       document.execCommand('insertText', false, `⚡ ${skillName}`);
       logMessage(`[SlashCommands] Pending skill set: /${skillName}`);
     } else {
-      insertPillInInput(el, skillName, fullContent);
+      insertPillInInput(el, skillName, content);
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -166,15 +152,11 @@ async function submitWithPill(el: Element): Promise<void> {
     const { name: skillName, content: skillContent } = _pendingSkill;
     _pendingSkill = null;
 
-    // Strip the display label to get any extra text the user typed
     const rawText = getInputText(el);
     const userText = rawText.replace(/^⚡\s*[\w-]+\s*/, '').trim();
-
     const finalText = userText ? `${userText}\n\n---\n\n${skillContent}` : skillContent;
 
-    // setInputText does selectAll+insertText — no separate clearInput needed
     await setInputText(el, finalText);
-    watchAndHideSubmittedContent(skillName, userText);
     submitInput(el);
     return;
   }
@@ -186,15 +168,11 @@ async function submitWithPill(el: Element): Promise<void> {
   const { skillContent, userText } = extracted;
   const finalText = userText ? `${userText}\n\n---\n\n${skillContent}` : skillContent;
 
-  const pill = el.querySelector('.omniskill-pill');
-  const skillName = pill?.textContent?.replace(/^\//, '').trim() ?? 'skill';
-
   if (isAIStudio()) {
     const injected = await injectSystemPrompt(skillContent);
     if (injected) {
       clearInput(el);
       await setInputText(el, userText || 'Begin.');
-      watchAndHideSubmittedContent(skillName, userText);
       submitInput(el);
       return;
     }
@@ -202,7 +180,6 @@ async function submitWithPill(el: Element): Promise<void> {
 
   clearInput(el);
   await setInputText(el, finalText);
-  watchAndHideSubmittedContent(skillName, userText);
   submitInput(el);
 }
 
@@ -210,7 +187,6 @@ async function submitWithPill(el: Element): Promise<void> {
 
 export function initSlashCommands(): void {
 
-  // ── Input event → show autocomplete ─────────────────────────────────────────
   document.addEventListener('input', () => {
     const el = document.activeElement;
     if (!el) return;
@@ -219,7 +195,7 @@ export function initSlashCommands(): void {
       el instanceof HTMLInputElement ||
       (el as HTMLElement).isContentEditable;
     if (!isInput) return;
-    if (hasPill(el)) { autocomplete.hide(); return; } // Don't show popup when pill is present
+    if (hasPill(el)) { autocomplete.hide(); return; }
 
     const text = getInputText(el).trim();
     const match = text.match(SLASH_RE);
@@ -228,11 +204,9 @@ export function initSlashCommands(): void {
         autocomplete.hide();
         await loadSkillIntoPill(el, skillName);
       });
-      // Prefetch top visible skills in background — by the time user selects, content is ready
       prefetchSkills(autocomplete.getVisibleToolNames().slice(0, 5));
     } else {
       autocomplete.hide();
-      // If user cleared the input entirely, discard pending skill
       if (text === '' && _pendingSkill) {
         _pendingSkill = null;
         logMessage('[SlashCommands] Pending skill cleared (input emptied)');
@@ -240,11 +214,9 @@ export function initSlashCommands(): void {
     }
   }, true);
 
-  // ── Keydown → navigation + submit ───────────────────────────────────────────
   document.addEventListener('keydown', async (e: KeyboardEvent) => {
     if (_submitting) return;
 
-    // Autocomplete navigation
     if (autocomplete.isVisible()) {
       if (e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); autocomplete.navigate('down'); return; }
       if (e.key === 'ArrowUp')   { e.preventDefault(); e.stopPropagation(); autocomplete.navigate('up');   return; }
@@ -263,17 +235,14 @@ export function initSlashCommands(): void {
       (el as HTMLElement).isContentEditable;
     if (!isInput) return;
 
-    // If input has a pill (Gemini) or pending side-state skill (ChatGPT), intercept submit
     if (hasPill(el) || _pendingSkill) {
       e.preventDefault();
       e.stopImmediatePropagation();
       await submitWithPill(el);
       return;
     }
-
   }, true);
 
-  // Hide autocomplete on outside click
   document.addEventListener('click', (e: MouseEvent) => {
     const p = document.getElementById('omniskill-autocomplete');
     if (p && !p.contains(e.target as Node)) autocomplete.hide();
