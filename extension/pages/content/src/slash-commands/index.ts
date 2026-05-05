@@ -137,8 +137,7 @@ async function loadSkillIntoPill(el: Element, skillName: string): Promise<void> 
 
     if (isTextareaEditor()) {
       _pendingSkill = { name: skillName, content };
-      clearInput(el);
-      document.execCommand('insertText', false, `⚡ ${skillName}`);
+      await setInputText(el, `/${skillName}`);
       logMessage(`[SlashCommands] Pending skill set: /${skillName}`);
     } else {
       insertPillInInput(el, skillName, content);
@@ -157,7 +156,7 @@ async function submitWithPill(el: Element): Promise<void> {
     _pendingSkill = null;
 
     const rawText = getInputText(el);
-    const userText = rawText.replace(/^⚡\s*[\w-]+\s*/, '').trim();
+    const userText = rawText.replace(/^\/[\w-]+\s*/, '').trim();
     const finalText = userText ? `${userText}\n\n---\n\n${skillContent}` : skillContent;
 
     await setInputText(el, finalText);
@@ -199,7 +198,7 @@ export function initSlashCommands(): void {
       el instanceof HTMLInputElement ||
       (el as HTMLElement).isContentEditable;
     if (!isInput) return;
-    if (hasPill(el)) { autocomplete.hide(); return; }
+    if (hasPill(el) || _pendingSkill) { autocomplete.hide(); return; }
 
     const text = getInputText(el).trim();
     const match = text.match(SLASH_RE);
