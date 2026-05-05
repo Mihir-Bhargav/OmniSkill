@@ -5,7 +5,7 @@
 
 // Export the custom instructions for ChatGPT
 export const chatgptInstructions = `
-How SuperAssistant works:
+How OmniSkill works:
   1. PRINT the function JSON event like function_calls to be executed as part of the output/response
   2. As part of your response there is a DOM observer tool which needs text to run that function manually, so make sure you print the function JSON events with correct function name, parameters and call_id.
   3. Upon Capturing the function JSON events, it will be executed with the call_id provided.

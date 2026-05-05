@@ -1,7 +1,7 @@
 /**
  * Core Architecture Components
  * 
- * Exports all core architectural components for the MCP SuperAssistant.
+ * Exports all core architectural components for OmniSkill.
  */
 
 export { circuitBreaker, CircuitBreaker } from './circuit-breaker';

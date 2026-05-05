@@ -6,7 +6,6 @@ export * from './plugin-types';
 export { pluginRegistry, initializePluginRegistry, cleanupPluginRegistry } from './plugin-registry';
 export { BaseAdapterPlugin } from './adapters/base.adapter';
 export { DefaultAdapter } from './adapters/default.adapter';
-export { ExampleForumAdapter } from './adapters/example-forum.adapter';
 export { GeminiAdapter } from './adapters/gemini.adapter';
 export { GrokAdapter } from './adapters/grok.adapter';
 export { PerplexityAdapter } from './adapters/perplexity.adapter';

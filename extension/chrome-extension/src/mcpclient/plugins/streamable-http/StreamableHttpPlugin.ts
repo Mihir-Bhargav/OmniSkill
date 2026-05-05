@@ -13,7 +13,7 @@ export class StreamableHttpPlugin implements ITransportPlugin {
     version: '1.0.0',
     transportType: 'streamable-http',
     description: 'Streamable HTTP transport for MCP protocol',
-    author: 'MCP SuperAssistant'
+    author: 'OmniSkill'
   };
 
   private transport: Transport | null = null;
