@@ -1135,22 +1135,22 @@ export const MCPPopover: React.FC<MCPPopoverProps> = ({ toggleStateManager, adap
 
   const buttonContent = adapterButtonConfig?.contentClassName ? (
     <span className={adapterButtonConfig.contentClassName}>
-        <img 
-          src={chrome.runtime.getURL('icon-34.png')} 
-          alt="MCP Logo" 
+        <img
+          src={chrome.runtime.getURL('icon-34.png')}
+          alt="OmniSkill"
           className={adapterButtonConfig.iconClassName || ''}
-        style={{ width: '20px', height: '20px', borderRadius: '50%' }}
+          style={{ width: '20px', height: '20px' }}
         />
-      <span className={adapterButtonConfig.textClassName || ''}>MCP</span>
+      <span className={adapterButtonConfig.textClassName || ''}>OmniSkill</span>
     </span>
   ) : (
     <>
-      <img 
-        src={chrome.runtime.getURL('icon-34.png')} 
-        alt="MCP Logo" 
-        style={{ width: '20px', height: '20px', marginRight: '1px', verticalAlign: 'middle', borderRadius: '50%' }}
+      <img
+        src={chrome.runtime.getURL('icon-34.png')}
+        alt="OmniSkill"
+        style={{ width: '20px', height: '20px', marginRight: '4px', verticalAlign: 'middle' }}
       />
-      MCP
+      OmniSkill
     </>
   );
 
