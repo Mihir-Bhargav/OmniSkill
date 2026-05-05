@@ -130,33 +130,32 @@ try {
   );
 }
 
-// Set up URL change detection
-setInterval(() => {
+// Set up URL change detection via navigation events (no polling)
+function onUrlChange(): void {
   const currentUrl = window.location.href;
-  if (currentUrl !== lastUrl) {
-    logMessage(`[Analytics] URL changed from ${lastUrl} to ${currentUrl}`);
-
-    // Send URL change event with demographic data
-    try {
-      chrome.runtime.sendMessage({
-        command: 'trackAnalyticsEvent',
-        eventName: 'url_change',
-        eventParams: {
-          page_title: document.title,
-          page_location: currentUrl,
-          previous_page: lastUrl,
-          ...demographicData,
-        },
-      });
-      lastUrl = currentUrl;
-    } catch (error) {
-      logger.error(
-        '[ContentScript] Error sending URL change analytics:',
-        error instanceof Error ? error.message : String(error),
-      );
-    }
+  if (currentUrl === lastUrl) return;
+  logMessage(`[Analytics] URL changed from ${lastUrl} to ${currentUrl}`);
+  try {
+    chrome.runtime.sendMessage({
+      command: 'trackAnalyticsEvent',
+      eventName: 'url_change',
+      eventParams: {
+        page_title: document.title,
+        page_location: currentUrl,
+        previous_page: lastUrl,
+        ...demographicData,
+      },
+    });
+    lastUrl = currentUrl;
+  } catch (error) {
+    logger.error(
+      '[ContentScript] Error sending URL change analytics:',
+      error instanceof Error ? error.message : String(error),
+    );
   }
-}, 1000); // Check every second
+}
+window.addEventListener('popstate', onUrlChange);
+window.addEventListener('hashchange', onUrlChange);
 
 // Ask background script to track the event
 try {
