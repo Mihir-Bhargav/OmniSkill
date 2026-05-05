@@ -818,28 +818,22 @@ export class GitHubCopilotAdapter extends BaseAdapterPlugin {
   private findButtonInsertionPoint(): { container: Element; insertAfter: Element | null } | null {
     this.context.logger.debug('Finding button insertion point for MCP popover');
 
-    // Try primary selector first - GitHub Copilot's toolbar left section
-    const toolbar = document.querySelector('button[data-testid="attachment-menu-button"]');
-    if (toolbar) {
-      this.context.logger.debug('Found insertion point: div#copilot-chat-textarea-preview');
-      const attachButton = toolbar.querySelector('button[data-testid="attachment-menu-button"]');
-      return { container: toolbar, insertAfter: attachButton };
+    // Insert next to the attachment button — use its parent as container
+    const attachButton = document.querySelector('button[data-testid="attachment-menu-button"]');
+    if (attachButton?.parentElement) {
+      this.context.logger.debug('Found insertion point: parent of attachment-menu-button');
+      return { container: attachButton.parentElement, insertAfter: attachButton };
     }
 
-    // Try fallback selector - general toolbar
-    const generalToolbar = document.querySelector('.ChatInput-module__toolbar--ZtCiG');
-    if (generalToolbar) {
-      this.context.logger.debug('Found fallback insertion point: .ChatInput-module__toolbar--ZtCiG');
-      return { container: generalToolbar, insertAfter: null };
-    }
-
-    // Try other fallback selectors
-    const fallbackSelectors = [
+    // Fallback: toolbar left section
+    const toolbarSelectors = [
+      '.ChatInput-module__toolbarLeft--cjV2H',
+      '.ChatInput-module__toolbar--ZtCiG',
       '.ChatInput-module__container--NFzCy',
-      '.Layout-module__chatInputContainer--DXrKy'
+      '.Layout-module__chatInputContainer--DXrKy',
     ];
 
-    for (const selector of fallbackSelectors) {
+    for (const selector of toolbarSelectors) {
       const container = document.querySelector(selector);
       if (container) {
         this.context.logger.debug(`Found fallback insertion point: ${selector}`);

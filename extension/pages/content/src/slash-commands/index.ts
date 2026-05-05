@@ -25,7 +25,7 @@ let _submitting = false;
 // Prefetch cache — populated when autocomplete opens, consumed on selection
 const _prefetchCache = new Map<string, Promise<string>>();
 
-// Side-state for ChatGPT/ProseMirror where DOM pill is stripped by the editor.
+// Side-state for textarea-based editors (ChatGPT, GitHub Copilot) where DOM pill can't be used.
 let _pendingSkill: { name: string; content: string } | null = null;
 
 function prefetchSkills(skillNames: string[]): void {
@@ -51,6 +51,10 @@ function getInputText(el: Element): string {
 
 function isChatGPT(): boolean {
   return location.hostname.includes('chatgpt.com');
+}
+
+function isTextareaEditor(): boolean {
+  return isChatGPT() || location.hostname.includes('github.com');
 }
 
 async function setInputText(el: Element, text: string): Promise<void> {
@@ -131,7 +135,7 @@ async function loadSkillIntoPill(el: Element, skillName: string): Promise<void> 
     _prefetchCache.delete(skillName);
     const content = await contentPromise;
 
-    if (isChatGPT()) {
+    if (isTextareaEditor()) {
       _pendingSkill = { name: skillName, content };
       clearInput(el);
       document.execCommand('insertText', false, `⚡ ${skillName}`);
@@ -147,8 +151,8 @@ async function loadSkillIntoPill(el: Element, skillName: string): Promise<void> 
 }
 
 async function submitWithPill(el: Element): Promise<void> {
-  // ChatGPT path — consume side-state
-  if (isChatGPT() && _pendingSkill) {
+  // Textarea editor path (ChatGPT, GitHub Copilot) — consume side-state
+  if (isTextareaEditor() && _pendingSkill) {
     const { name: skillName, content: skillContent } = _pendingSkill;
     _pendingSkill = null;
 
