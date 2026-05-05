@@ -1,6 +1,5 @@
 
 <div align="center">
-  <img src="chrome-extension/public/icon-128.png" alt="OmniSkill Logo" width="80" height="80">
   <h1>OmniSkill</h1>
 </div>
 
