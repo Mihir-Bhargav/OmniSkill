@@ -666,10 +666,6 @@ window.addEventListener('beforeunload', async () => {
   }
 });
 
-// Expose mcpClient to the global window object for renderer or debugging access
-(window as any).mcpClient = mcpClient;
-logger.debug('[Content Script] mcpClient exposed to window object for renderer use.');
-
 // Set the current adapter to global window object using the new plugin system
 const adapterStore = useAdapterStore.getState();
 const currentAdapterReg = adapterStore.getActiveAdapter();

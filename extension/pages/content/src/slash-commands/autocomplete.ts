@@ -81,6 +81,7 @@ let popup: HTMLDivElement | null = null;
 let selectedIndex = 0;
 let visibleTools: Tool[] = [];
 let onSelect: ((name: string) => void) | null = null;
+let currentQuery = '';
 
 function getPopup(): HTMLDivElement {
   if (!popup) {
@@ -152,6 +153,7 @@ function confirmSelection() {
 export function show(inputEl: Element, query: string, selectCallback: (name: string) => void) {
   onSelect = selectCallback;
   selectedIndex = 0;
+  currentQuery = query;
 
   const all: Tool[] = useToolStore.getState().availableTools as Tool[];
   visibleTools = query
@@ -173,6 +175,7 @@ export function hide() {
   if (popup) popup.style.display = 'none';
   visibleTools = [];
   onSelect = null;
+  currentQuery = '';
 }
 
 export function getVisibleToolNames(): string[] {
@@ -188,7 +191,7 @@ export function navigate(dir: 'up' | 'down') {
   selectedIndex = dir === 'down'
     ? (selectedIndex + 1) % visibleTools.length
     : (selectedIndex - 1 + visibleTools.length) % visibleTools.length;
-  renderItems(''); // re-render to update highlight (query not needed for nav)
+  renderItems(currentQuery);
   // Scroll selected into view
   const items = getPopup().querySelectorAll('.os-item');
   items[selectedIndex]?.scrollIntoView({ block: 'nearest' });
