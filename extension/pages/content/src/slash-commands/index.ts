@@ -179,11 +179,41 @@ async function loadSkillIntoPill(el: Element, skillName: string): Promise<void> 
     _prefetchCache.delete(skillName);
     const content = await contentPromise;
 
-    if (isChatGPT() || isTextareaEditor()) {
+    if (isChatGPT()) {
+      // Insert a contenteditable=false blue span into ProseMirror — stays blue
+      // while user types normal text after it, exactly like Gemini's pill.
+      _pendingSkill = { name: skillName, content };
+      const htmlEl = el as HTMLElement;
+      htmlEl.focus();
+      // Clear existing content
+      document.execCommand('selectAll', false, undefined);
+      document.execCommand('delete', false, undefined);
+      // Build: <p><span contenteditable=false style="...">/<name></span> </p>
+      const p = document.createElement('p');
+      const span = document.createElement('span');
+      span.setAttribute('contenteditable', 'false');
+      span.setAttribute('style', 'color:#1a73e8;font-weight:700;user-select:none;cursor:default');
+      span.setAttribute('data-omniskill-pill', 'true');
+      span.textContent = `/${skillName}`;
+      const space = document.createTextNode(' ');
+      p.appendChild(span);
+      p.appendChild(space);
+      htmlEl.innerHTML = '';
+      htmlEl.appendChild(p);
+      htmlEl.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+      // Place cursor after the space
+      const range = document.createRange();
+      range.setStartAfter(space);
+      range.collapse(true);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      logMessage(`[SlashCommands] Pending skill set (ChatGPT): /${skillName}`);
+    } else if (isTextareaEditor()) {
       _pendingSkill = { name: skillName, content };
       await setInputText(el, `/${skillName} `);
       setPendingStyle(el, skillName);
-      logMessage(`[SlashCommands] Pending skill set: /${skillName}`);
+      logMessage(`[SlashCommands] Pending skill set (Copilot): /${skillName}`);
     } else {
       insertPillInInput(el, skillName, content);
     }
