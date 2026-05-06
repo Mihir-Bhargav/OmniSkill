@@ -58,8 +58,9 @@ function isGitHubCopilot(): boolean {
 }
 
 function isTextareaEditor(): boolean {
-  // Only true textarea inputs — ChatGPT is ProseMirror (contentEditable) so excluded
-  return isGitHubCopilot();
+  // ChatGPT (ProseMirror) and GitHub Copilot (textarea) both use _pendingSkill
+  // side-state rather than DOM pill — execCommand truncates large content on both.
+  return isChatGPT() || isGitHubCopilot();
 }
 
 async function setInputText(el: Element, text: string): Promise<void> {
@@ -68,15 +69,13 @@ async function setInputText(el: Element, text: string): Promise<void> {
     const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
     setter ? setter.call(el, text) : (el.value = text);
     el.dispatchEvent(new Event('input', { bubbles: true }));
-  } else if (isChatGPT()) {
-    document.execCommand('selectAll', false, undefined);
-    document.execCommand('insertText', false, text);
-    await new Promise(r => setTimeout(r, 50));
   } else {
+    // Works for both ChatGPT ProseMirror and Gemini contentEditable
     const htmlEl = el as HTMLElement;
     htmlEl.innerHTML = '';
     htmlEl.appendChild(document.createTextNode(text));
     htmlEl.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    await new Promise(r => setTimeout(r, 50));
   }
 }
 
@@ -86,9 +85,6 @@ function clearInput(el: Element): void {
     const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
     setter ? setter.call(el, '') : (el.value = '');
     el.dispatchEvent(new Event('input', { bubbles: true }));
-  } else if (isChatGPT()) {
-    document.execCommand('selectAll', false, undefined);
-    document.execCommand('insertText', false, '');
   } else {
     document.execCommand('selectAll', false, undefined);
     document.execCommand('delete', false, undefined);
