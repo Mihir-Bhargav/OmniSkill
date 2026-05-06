@@ -157,12 +157,27 @@ async function loadSkillIntoPill(el: Element, skillName: string): Promise<void> 
     _prefetchCache.delete(skillName);
     const content = await contentPromise;
 
-    if (isTextareaEditor()) {
-      // Textarea editors (GitHub Copilot): show /skillname as placeholder so the
-      // user can type additional context after it, then Enter submits everything.
+    if (isChatGPT()) {
+      // ProseMirror: inject a styled span so the skill name appears in colour
+      _pendingSkill = { name: skillName, content };
+      const htmlEl = el as HTMLElement;
+      htmlEl.innerHTML = `<p><span style="color:#1a73e8;font-weight:700">/${skillName}</span> </p>`;
+      htmlEl.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+      // Move cursor to end
+      const range = document.createRange();
+      const sel = window.getSelection();
+      range.selectNodeContents(htmlEl);
+      range.collapse(false);
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      logMessage(`[SlashCommands] Pending skill set (ChatGPT): /${skillName}`);
+    } else if (isTextareaEditor()) {
+      // GitHub Copilot textarea: style the element itself to signal skill is active
       _pendingSkill = { name: skillName, content };
       await setInputText(el, `/${skillName} `);
-      logMessage(`[SlashCommands] Pending skill set: /${skillName}`);
+      (el as HTMLElement).style.color = '#1a73e8';
+      (el as HTMLElement).style.fontWeight = '700';
+      logMessage(`[SlashCommands] Pending skill set (Copilot): /${skillName}`);
     } else {
       insertPillInInput(el, skillName, content);
     }
@@ -183,6 +198,9 @@ async function submitWithPill(el: Element): Promise<void> {
     const userText = rawText.replace(/^\/[\w-]+\s*/, '').trim();
     const finalText = userText ? `${userText}\n\n---\n\n${skillContent}` : skillContent;
 
+    // Clear textarea styling if it was applied
+    (el as HTMLElement).style.color = '';
+    (el as HTMLElement).style.fontWeight = '';
     await setInputText(el, finalText);
     await new Promise(r => setTimeout(r, 80)); // let React settle before submit
     submitInput(el);
