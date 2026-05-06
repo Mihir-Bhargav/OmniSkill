@@ -42,6 +42,28 @@ function prefetchSkills(skillNames: string[]): void {
   }
 }
 
+// ── Pending skill visual indicator ────────────────────────────────────────────
+
+let _styleEl: HTMLStyleElement | null = null;
+
+function setPendingStyle(el: Element, skillName: string): void {
+  el.setAttribute('data-omniskill-skill', skillName);
+  if (!_styleEl) {
+    _styleEl = document.createElement('style');
+    _styleEl.id = 'omniskill-pending-style';
+    document.head.appendChild(_styleEl);
+  }
+  // Colour the text already in the input blue/bold via attribute selector
+  _styleEl.textContent = `
+    [data-omniskill-skill] { color: #1a73e8 !important; font-weight: 700 !important; }
+  `;
+}
+
+function clearPendingStyle(el: Element): void {
+  el.removeAttribute('data-omniskill-skill');
+  if (_styleEl) { _styleEl.textContent = ''; }
+}
+
 // ── Input helpers ──────────────────────────────────────────────────────────────
 
 function getInputText(el: Element): string {
@@ -157,27 +179,11 @@ async function loadSkillIntoPill(el: Element, skillName: string): Promise<void> 
     _prefetchCache.delete(skillName);
     const content = await contentPromise;
 
-    if (isChatGPT()) {
-      // ProseMirror: inject a styled span so the skill name appears in colour
-      _pendingSkill = { name: skillName, content };
-      const htmlEl = el as HTMLElement;
-      htmlEl.innerHTML = `<p><span style="color:#1a73e8;font-weight:700">/${skillName}</span> </p>`;
-      htmlEl.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
-      // Move cursor to end
-      const range = document.createRange();
-      const sel = window.getSelection();
-      range.selectNodeContents(htmlEl);
-      range.collapse(false);
-      sel?.removeAllRanges();
-      sel?.addRange(range);
-      logMessage(`[SlashCommands] Pending skill set (ChatGPT): /${skillName}`);
-    } else if (isTextareaEditor()) {
-      // GitHub Copilot textarea: style the element itself to signal skill is active
+    if (isChatGPT() || isTextareaEditor()) {
       _pendingSkill = { name: skillName, content };
       await setInputText(el, `/${skillName} `);
-      (el as HTMLElement).style.color = '#1a73e8';
-      (el as HTMLElement).style.fontWeight = '700';
-      logMessage(`[SlashCommands] Pending skill set (Copilot): /${skillName}`);
+      setPendingStyle(el, skillName);
+      logMessage(`[SlashCommands] Pending skill set: /${skillName}`);
     } else {
       insertPillInInput(el, skillName, content);
     }
@@ -198,9 +204,7 @@ async function submitWithPill(el: Element): Promise<void> {
     const userText = rawText.replace(/^\/[\w-]+\s*/, '').trim();
     const finalText = userText ? `${userText}\n\n---\n\n${skillContent}` : skillContent;
 
-    // Clear textarea styling if it was applied
-    (el as HTMLElement).style.color = '';
-    (el as HTMLElement).style.fontWeight = '';
+    clearPendingStyle(el);
     await setInputText(el, finalText);
     await new Promise(r => setTimeout(r, 80)); // let React settle before submit
     submitInput(el);
@@ -255,6 +259,7 @@ export function initSlashCommands(): void {
       autocomplete.hide();
       if (text === '' && _pendingSkill) {
         _pendingSkill = null;
+        if (el) clearPendingStyle(el);
         logMessage('[SlashCommands] Pending skill cleared (input emptied)');
       }
     }
