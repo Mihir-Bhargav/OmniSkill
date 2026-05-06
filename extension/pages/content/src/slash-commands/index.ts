@@ -245,7 +245,17 @@ export function initSlashCommands(): void {
       el instanceof HTMLInputElement ||
       (el as HTMLElement).isContentEditable;
     if (!isInput) return;
-    if (hasPill(el) || _pendingSkill) { autocomplete.hide(); return; }
+    if (hasPill(el) || _pendingSkill) {
+      autocomplete.hide();
+      // Once user types beyond /skillname, drop the blue colouring
+      if (_pendingSkill && _styleEl?.textContent) {
+        const inputText = getInputText(el as Element);
+        if (inputText.trim() !== `/${_pendingSkill.name}`) {
+          clearPendingStyle(el as Element);
+        }
+      }
+      return;
+    }
 
     const text = getInputText(el).trim();
     const match = text.match(SLASH_RE);
