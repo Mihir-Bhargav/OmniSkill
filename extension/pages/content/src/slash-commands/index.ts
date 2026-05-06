@@ -154,12 +154,11 @@ async function loadSkillIntoPill(el: Element, skillName: string): Promise<void> 
     const content = await contentPromise;
 
     if (isTextareaEditor()) {
-      // Textarea editors (GitHub Copilot): load content and submit immediately —
-      // no pill intermediate step, one Enter does it all.
-      await setInputText(el, content);
-      await new Promise(r => setTimeout(r, 80)); // let React settle
-      submitInput(el);
-      logMessage(`[SlashCommands] Textarea skill submitted: /${skillName}`);
+      // Textarea editors (GitHub Copilot): show /skillname as placeholder so the
+      // user can type additional context after it, then Enter submits everything.
+      _pendingSkill = { name: skillName, content };
+      await setInputText(el, `/${skillName} `);
+      logMessage(`[SlashCommands] Pending skill set: /${skillName}`);
     } else {
       insertPillInInput(el, skillName, content);
     }
@@ -171,6 +170,21 @@ async function loadSkillIntoPill(el: Element, skillName: string): Promise<void> 
 }
 
 async function submitWithPill(el: Element): Promise<void> {
+  // Textarea path (GitHub Copilot): combine user text with skill content then submit
+  if (isTextareaEditor() && _pendingSkill) {
+    const { content: skillContent } = _pendingSkill;
+    _pendingSkill = null;
+
+    const rawText = getInputText(el);
+    const userText = rawText.replace(/^\/[\w-]+\s*/, '').trim();
+    const finalText = userText ? `${userText}\n\n---\n\n${skillContent}` : skillContent;
+
+    await setInputText(el, finalText);
+    await new Promise(r => setTimeout(r, 80)); // let React settle before submit
+    submitInput(el);
+    return;
+  }
+
   // DOM pill path (Gemini, AI Studio, others)
   const extracted = extractFromInput(el);
   if (!extracted) return;
