@@ -58,8 +58,9 @@ function isGitHubCopilot(): boolean {
 }
 
 function isTextareaEditor(): boolean {
-  // Only GitHub Copilot uses true textarea — ChatGPT is contentEditable (DOM pill)
-  return isGitHubCopilot();
+  // ChatGPT (ProseMirror) and GitHub Copilot (textarea) both use _pendingSkill
+  // side-state rather than DOM pill — execCommand truncates large content on both.
+  return isChatGPT() || isGitHubCopilot();
 }
 
 async function setInputText(el: Element, text: string): Promise<void> {
@@ -68,16 +69,8 @@ async function setInputText(el: Element, text: string): Promise<void> {
     const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
     setter ? setter.call(el, text) : (el.value = text);
     el.dispatchEvent(new Event('input', { bubbles: true }));
-  } else if (isChatGPT()) {
-    // ProseMirror needs <p> per paragraph — plain text nodes collapse newlines
-    const htmlEl = el as HTMLElement;
-    htmlEl.innerHTML = text
-      .split('\n')
-      .map(line => `<p>${line === '' ? '<br>' : line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`)
-      .join('');
-    htmlEl.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
-    await new Promise(r => setTimeout(r, 50));
   } else {
+    // Works for both ChatGPT ProseMirror and Gemini contentEditable
     const htmlEl = el as HTMLElement;
     htmlEl.innerHTML = '';
     htmlEl.appendChild(document.createTextNode(text));
@@ -157,11 +150,10 @@ async function loadSkillIntoPill(el: Element, skillName: string): Promise<void> 
     const content = await contentPromise;
 
     if (isTextareaEditor()) {
-      // GitHub Copilot textarea: show /skillname in blue to signal skill is loaded.
+      // Textarea editors (GitHub Copilot): show /skillname as placeholder so the
+      // user can type additional context after it, then Enter submits everything.
       _pendingSkill = { name: skillName, content };
       await setInputText(el, `/${skillName} `);
-      (el as HTMLElement).style.color = '#1a73e8';
-      (el as HTMLElement).style.fontWeight = '700';
       logMessage(`[SlashCommands] Pending skill set: /${skillName}`);
     } else {
       insertPillInInput(el, skillName, content);
@@ -183,9 +175,6 @@ async function submitWithPill(el: Element): Promise<void> {
     const userText = rawText.replace(/^\/[\w-]+\s*/, '').trim();
     const finalText = userText ? `${userText}\n\n---\n\n${skillContent}` : skillContent;
 
-    // Reset textarea styling before submitting
-    (el as HTMLElement).style.color = '';
-    (el as HTMLElement).style.fontWeight = '';
     await setInputText(el, finalText);
     await new Promise(r => setTimeout(r, 80)); // let React settle before submit
     submitInput(el);
