@@ -69,8 +69,16 @@ async function setInputText(el: Element, text: string): Promise<void> {
     const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
     setter ? setter.call(el, text) : (el.value = text);
     el.dispatchEvent(new Event('input', { bubbles: true }));
+  } else if (isChatGPT()) {
+    // ProseMirror needs <p> per line — plain text nodes collapse newlines into one block
+    const htmlEl = el as HTMLElement;
+    htmlEl.innerHTML = text
+      .split('\n')
+      .map(line => `<p>${line.length === 0 ? '<br>' : line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`)
+      .join('');
+    htmlEl.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    await new Promise(r => setTimeout(r, 50));
   } else {
-    // Works for both ChatGPT ProseMirror and Gemini contentEditable
     const htmlEl = el as HTMLElement;
     htmlEl.innerHTML = '';
     htmlEl.appendChild(document.createTextNode(text));
