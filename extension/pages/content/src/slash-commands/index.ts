@@ -45,23 +45,53 @@ function prefetchSkills(skillNames: string[]): void {
 // ── Pending skill visual indicator ────────────────────────────────────────────
 
 let _styleEl: HTMLStyleElement | null = null;
+let _pillObserver: MutationObserver | null = null;
 
-function setPendingStyle(el: Element, skillName: string): void {
-  el.setAttribute('data-omniskill-skill', skillName);
-  if (!_styleEl) {
-    _styleEl = document.createElement('style');
-    _styleEl.id = 'omniskill-pending-style';
-    document.head.appendChild(_styleEl);
-  }
-  // Colour the text already in the input blue/bold via attribute selector
-  _styleEl.textContent = `
-    [data-omniskill-skill] { color: #1a73e8 !important; font-weight: 700 !important; }
-  `;
+function injectPillStyle(): void {
+  if (_styleEl) return;
+  _styleEl = document.createElement('style');
+  _styleEl.id = 'omniskill-pending-style';
+  _styleEl.textContent = `[data-omniskill-pill]{color:#1a73e8!important;font-weight:700!important;user-select:none;cursor:default}`;
+  document.head.appendChild(_styleEl);
+}
+
+// After React re-renders the ProseMirror DOM, wrap the /skillname text node
+// in a data-omniskill-pill span so the injected CSS can colour it.
+function applyPillAfterRerender(container: HTMLElement, skillName: string): void {
+  if (_pillObserver) { _pillObserver.disconnect(); _pillObserver = null; }
+
+  _pillObserver = new MutationObserver(() => {
+    // Walk text nodes in container, find /skillname and wrap it
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    let node: Text | null;
+    while ((node = walker.nextNode() as Text | null)) {
+      if (node.textContent?.startsWith(`/${skillName}`)) {
+        // Already wrapped — skip
+        if ((node.parentElement as HTMLElement)?.dataset?.omniskillPill) break;
+        const span = document.createElement('span');
+        span.setAttribute('data-omniskill-pill', 'true');
+        // Wrap just the /skillname portion
+        const rest = node.textContent.slice(`/${skillName}`.length);
+        node.textContent = `/${skillName}`;
+        node.parentNode?.insertBefore(span, node);
+        span.appendChild(node);
+        if (rest) span.insertAdjacentText('afterend', rest);
+        break;
+      }
+    }
+    _pillObserver?.disconnect();
+    _pillObserver = null;
+  });
+
+  _pillObserver.observe(container, { childList: true, subtree: true, characterData: true });
 }
 
 function clearPendingStyle(el: Element): void {
-  el.removeAttribute('data-omniskill-skill');
-  if (_styleEl) { _styleEl.textContent = ''; }
+  if (_pillObserver) { _pillObserver.disconnect(); _pillObserver = null; }
+  // Remove any pill spans, restore their text content
+  el.querySelectorAll('[data-omniskill-pill]').forEach(span => {
+    span.replaceWith(...Array.from(span.childNodes));
+  });
 }
 
 // ── Input helpers ──────────────────────────────────────────────────────────────
@@ -180,39 +210,17 @@ async function loadSkillIntoPill(el: Element, skillName: string): Promise<void> 
     const content = await contentPromise;
 
     if (isChatGPT()) {
-      // Insert a contenteditable=false blue span into ProseMirror — stays blue
-      // while user types normal text after it, exactly like Gemini's pill.
+      // Set text via native setter, arm MutationObserver to wrap /skillname in
+      // a styled span after React re-renders the ProseMirror DOM.
       _pendingSkill = { name: skillName, content };
-      const htmlEl = el as HTMLElement;
-      htmlEl.focus();
-      // Clear existing content
-      document.execCommand('selectAll', false, undefined);
-      document.execCommand('delete', false, undefined);
-      // Build: <p><span contenteditable=false style="...">/<name></span> </p>
-      const p = document.createElement('p');
-      const span = document.createElement('span');
-      span.setAttribute('contenteditable', 'false');
-      span.setAttribute('style', 'color:#1a73e8;font-weight:700;user-select:none;cursor:default');
-      span.setAttribute('data-omniskill-pill', 'true');
-      span.textContent = `/${skillName}`;
-      const space = document.createTextNode(' ');
-      p.appendChild(span);
-      p.appendChild(space);
-      htmlEl.innerHTML = '';
-      htmlEl.appendChild(p);
-      htmlEl.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
-      // Place cursor after the space
-      const range = document.createRange();
-      range.setStartAfter(space);
-      range.collapse(true);
-      const sel = window.getSelection();
-      sel?.removeAllRanges();
-      sel?.addRange(range);
+      injectPillStyle();
+      applyPillAfterRerender(el as HTMLElement, skillName);
+      await setInputText(el, `/${skillName} `);
       logMessage(`[SlashCommands] Pending skill set (ChatGPT): /${skillName}`);
     } else if (isTextareaEditor()) {
+      // GitHub Copilot textarea — no partial colour possible, just set text
       _pendingSkill = { name: skillName, content };
       await setInputText(el, `/${skillName} `);
-      setPendingStyle(el, skillName);
       logMessage(`[SlashCommands] Pending skill set (Copilot): /${skillName}`);
     } else {
       insertPillInInput(el, skillName, content);
