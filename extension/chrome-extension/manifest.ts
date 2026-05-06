@@ -31,25 +31,16 @@ const manifest = {
   host_permissions: [
     'http://localhost/*',
     'http://127.0.0.1/*',
-    '*://*.perplexity.ai/*',
-    '*://*.chat.openai.com/*',
-    '*://*.chatgpt.com/*',
-    '*://*.grok.com/*',
-    '*://*.x.com/*',
-    '*://*.twitter.com/*',
     '*://*.gemini.google.com/*',
     '*://*.aistudio.google.com/*',
-    '*://*.openrouter.ai/*',
-    '*://*.google-analytics.com/*',
-    '*://*.chat.deepseek.com/*',
-    '*://*.t3.chat/*',
-    '*://*.chat.mistral.ai/*',
+    '*://*.chat.openai.com/*',
+    '*://*.chatgpt.com/*',
     '*://*.github.com/*',
     '*://*.copilot.github.com/*',
-    '*://*.kimi.com/*',
-    '*://*.chat.z.ai/*',
-    '*://*.chat.qwen.ai/*',
-
+    '*://*.chat.deepseek.com/*',
+    '*://*.grok.com/*',
+    '*://*.perplexity.ai/*',
+    '*://*.lovable.dev/*',
   ],
 
   permissions: ['storage', 'clipboardWrite'],
@@ -93,12 +84,6 @@ const manifest = {
       js: ['content/index.iife.js'],
       run_at: 'document_idle',
     },
-    // Specific content script for x.com and twitter.com tool call parsing (Grok integration)
-    {
-      matches: ['*://*.x.com/*', '*://*.twitter.com/*', '*://*.x.com/i/grok*', '*://*.twitter.com/i/grok*'],
-      js: ['content/index.iife.js'],
-      run_at: 'document_idle',
-    },
     // Specific content script for Gemini tool call parsing
     {
       matches: ['*://*.gemini.google.com/*'],
@@ -111,56 +96,21 @@ const manifest = {
       js: ['content/index.iife.js'],
       run_at: 'document_idle',
     },
-    // Specific content script for OpenRouter tool call parsing
-    {
-      matches: ['*://*.openrouter.ai/*'],
-      js: ['content/index.iife.js'],
-      run_at: 'document_idle',
-    },
-    // Specific content script for DeepSeek tool call parsing
+    // Specific content script for DeepSeek
     {
       matches: ['*://*.chat.deepseek.com/*'],
       js: ['content/index.iife.js'],
       run_at: 'document_idle',
     },
-    // Specific content script for Kagi tool call parsing
-    {
-      matches: ['*://*.kagi.com/*'],
-      js: ['content/index.iife.js'],
-      run_at: 'document_idle',
-    },
-    // Specific content script for T3 Chat tool call parsing
-    {
-      matches: ['*://*.t3.chat/*'],
-      js: ['content/index.iife.js'],
-      run_at: 'document_idle',
-    },
-    // Specific content script for Mistral AI tool call parsing
-    {
-      matches: ['*://*.chat.mistral.ai/*'],
-      js: ['content/index.iife.js'],
-      run_at: 'document_idle',
-    },
-    // Specific content script for GitHub Copilot tool call parsing
+    // Specific content script for GitHub Copilot
     {
       matches: ['*://*.github.com/*', '*://*.copilot.github.com/*'],
       js: ['content/index.iife.js'],
       run_at: 'document_idle',
     },
-    // Specific content script for Kimi
+    // Specific content script for Lovable
     {
-      matches: ['*://*.kimi.com/*'],
-      js: ['content/index.iife.js'],
-      run_at: 'document_idle',
-    },
-    // Specific content script for chat.z.ai
-    {
-      matches: ['*://*.chat.z.ai/*'],
-      js: ['content/index.iife.js'],
-      run_at: 'document_idle',
-    },
-    {
-      matches: ['*://*.chat.qwen.ai/*'],
+      matches: ['*://*.lovable.dev/*'],
       js: ['content/index.iife.js'],
       run_at: 'document_idle',
     },
