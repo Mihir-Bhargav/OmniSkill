@@ -36,9 +36,12 @@ export function insertPillInInput(el: Element, skillName: string, skillContent: 
   const sel = window.getSelection();
   if (sel && sel.rangeCount > 0) {
     const range = sel.getRangeAt(0);
-    range.insertNode(document.createTextNode('​'));
     range.insertNode(pill);
+    // Place cursor after the pill
+    const after = document.createTextNode(' '); // non-breaking space as cursor anchor
     range.setStartAfter(pill);
+    range.insertNode(after);
+    range.setStartAfter(after);
     range.collapse(true);
     sel.removeAllRanges();
     sel.addRange(range);
@@ -60,7 +63,7 @@ export function extractFromInput(el: Element): { skillContent: string; userText:
 
   const clone = (el as HTMLElement).cloneNode(true) as HTMLElement;
   clone.querySelectorAll(`.${PILL_CLASS}`).forEach(p => p.remove());
-  const userText = clone.innerText.replace(/​/g, '').trim();
+  const userText = clone.innerText.trim();
 
   return { skillContent, userText };
 }
