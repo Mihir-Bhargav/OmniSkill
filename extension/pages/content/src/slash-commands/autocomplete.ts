@@ -93,14 +93,52 @@ function getPopup(): HTMLDivElement {
   return popup;
 }
 
+const NATIVE_SLASH_SELECTORS = [
+  // ChatGPT
+  '[data-testid="composer-slash-menu"]',
+  '[class*="SlashCommandMenu"]',
+  '[class*="slash-command"]',
+  // GitHub Copilot
+  '.ActionListWrap',
+  '[aria-label="Slash commands"]',
+];
+
+function findNativeSlashPopup(): Element | null {
+  for (const sel of NATIVE_SLASH_SELECTORS) {
+    const el = document.querySelector(sel);
+    if (el) return el;
+  }
+  return null;
+}
+
 function positionAboveInput(inputEl: Element) {
   const p = getPopup();
   const rect = inputEl.getBoundingClientRect();
-  // Place popup above the input; if not enough room, place below
+  const popupWidth = Math.max(340, rect.width);
   const popupHeight = Math.min(320, visibleTools.length * 56 + 36);
+
+  // Check if a native slash popup is visible — position beside it if so
+  const native = findNativeSlashPopup();
+  if (native) {
+    const nr = native.getBoundingClientRect();
+    // Try right of native popup first
+    const rightEdge = nr.right + 8 + popupWidth;
+    if (rightEdge <= window.innerWidth) {
+      p.style.left = `${nr.right + 8}px`;
+    } else {
+      // Place left of native popup
+      p.style.left = `${Math.max(0, nr.left - popupWidth - 8)}px`;
+    }
+    p.style.top = `${nr.top}px`;
+    p.style.width = `${popupWidth}px`;
+    p.style.bottom = 'auto';
+    return;
+  }
+
+  // Default: above input (or below if not enough room)
   const top = rect.top - popupHeight - 8;
   p.style.left = `${rect.left}px`;
-  p.style.width = `${Math.max(340, rect.width)}px`;
+  p.style.width = `${popupWidth}px`;
   if (top > 0) {
     p.style.top = `${top}px`;
     p.style.bottom = 'auto';

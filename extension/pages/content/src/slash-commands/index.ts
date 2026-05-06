@@ -271,7 +271,7 @@ export function initSlashCommands(): void {
       return;
     }
 
-    const text = getInputText(el).trim();
+    const text = getInputText(el).trim().replace(/\n/g, '');
     const match = text.match(SLASH_RE);
     if (match) {
       autocomplete.show(el, match[1], async (skillName) => {
