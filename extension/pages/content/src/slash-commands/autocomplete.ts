@@ -139,9 +139,10 @@ function positionAboveInput(inputEl: Element) {
   // No native popup found — on ChatGPT/Copilot anchor to right side of input.
   // Use 30% of viewport width, capped to input width, min 260px.
   if (location.hostname.includes('chatgpt.com') || location.hostname.includes('github.com')) {
-    const ourWidth = Math.max(260, Math.min(Math.round(window.innerWidth * 0.3), rect.width));
-    const rightAnchor = Math.min(rect.right - ourWidth, window.innerWidth - ourWidth - 8);
-    p.style.left = `${Math.max(0, rightAnchor)}px`;
+    const ourWidth = Math.round(window.innerWidth * 0.28);
+    // Pin to far right of viewport so we sit right of any native popup
+    const rightAnchor = window.innerWidth - ourWidth - 16;
+    p.style.left = `${rightAnchor}px`;
     p.style.width = `${ourWidth}px`;
     const top = rect.top - popupHeight - 8;
     p.style.top = top > 0 ? `${top}px` : `${rect.bottom + 8}px`;
