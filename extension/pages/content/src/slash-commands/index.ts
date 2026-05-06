@@ -53,8 +53,13 @@ function isChatGPT(): boolean {
   return location.hostname.includes('chatgpt.com');
 }
 
+function isGitHubCopilot(): boolean {
+  return location.hostname.includes('github.com');
+}
+
 function isTextareaEditor(): boolean {
-  return isChatGPT() || location.hostname.includes('github.com');
+  // Only true textarea inputs — ChatGPT is ProseMirror (contentEditable) so excluded
+  return isGitHubCopilot();
 }
 
 async function setInputText(el: Element, text: string): Promise<void> {
@@ -103,6 +108,19 @@ function submitInput(el: Element): void {
         key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true,
       }));
     }
+  } else if (isGitHubCopilot()) {
+    // GitHub Copilot doesn't submit on textarea keydown — click the send button
+    const sendBtn = document.querySelector<HTMLButtonElement>(
+      'button[aria-labelledby*="Send"], button:has(.octicon-paper-airplane), button[type="submit"]'
+    );
+    if (sendBtn && !sendBtn.disabled) {
+      sendBtn.click();
+    } else {
+      // Fallback: Enter on the textarea
+      el.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true,
+      }));
+    }
   } else {
     el.dispatchEvent(new KeyboardEvent('keydown', {
       key: 'Enter', code: 'Enter', keyCode: 13,
@@ -136,9 +154,12 @@ async function loadSkillIntoPill(el: Element, skillName: string): Promise<void> 
     const content = await contentPromise;
 
     if (isTextareaEditor()) {
-      _pendingSkill = { name: skillName, content };
-      await setInputText(el, `/${skillName}`);
-      logMessage(`[SlashCommands] Pending skill set: /${skillName}`);
+      // Textarea editors (GitHub Copilot): load content and submit immediately —
+      // no pill intermediate step, one Enter does it all.
+      await setInputText(el, content);
+      await new Promise(r => setTimeout(r, 80)); // let React settle
+      submitInput(el);
+      logMessage(`[SlashCommands] Textarea skill submitted: /${skillName}`);
     } else {
       insertPillInInput(el, skillName, content);
     }
@@ -150,20 +171,6 @@ async function loadSkillIntoPill(el: Element, skillName: string): Promise<void> 
 }
 
 async function submitWithPill(el: Element): Promise<void> {
-  // Textarea editor path (ChatGPT, GitHub Copilot) — consume side-state
-  if (isTextareaEditor() && _pendingSkill) {
-    const { name: skillName, content: skillContent } = _pendingSkill;
-    _pendingSkill = null;
-
-    const rawText = getInputText(el);
-    const userText = rawText.replace(/^\/[\w-]+\s*/, '').trim();
-    const finalText = userText ? `${userText}\n\n---\n\n${skillContent}` : skillContent;
-
-    await setInputText(el, finalText);
-    submitInput(el);
-    return;
-  }
-
   // DOM pill path (Gemini, AI Studio, others)
   const extracted = extractFromInput(el);
   if (!extracted) return;
