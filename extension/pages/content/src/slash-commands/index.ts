@@ -261,14 +261,19 @@ export function initSlashCommands(): void {
     if (!isInput) return;
     if (hasPill(el) || _pendingSkill) {
       autocomplete.hide();
-      // Once user types beyond /skillname, drop the blue colouring
-      if (_pendingSkill && _styleEl?.textContent) {
-        const inputText = getInputText(el as Element);
-        if (inputText.trim() !== `/${_pendingSkill.name}`) {
+      // If input is empty or doesn't start with /skillname, skill was consumed — clear state
+      if (_pendingSkill) {
+        const inputText = getInputText(el as Element).trim().replace(/\n/g, '');
+        if (inputText === '' || !inputText.startsWith(`/${_pendingSkill.name}`)) {
+          _pendingSkill = null;
           clearPendingStyle(el as Element);
+          // Don't return — fall through so autocomplete can show if text matches /
+        } else {
+          return;
         }
+      } else {
+        return;
       }
-      return;
     }
 
     const text = getInputText(el).trim().replace(/\n/g, '');

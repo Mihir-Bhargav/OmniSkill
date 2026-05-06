@@ -20,7 +20,9 @@ const CSS = `
   border: 1px solid #313244;
   border-radius: 10px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.45);
-  width: 340px;
+  width: auto;
+  min-width: 260px;
+  max-width: min(400px, 40vw);
   max-height: 320px;
   overflow-y: auto;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -114,23 +116,35 @@ function findNativeSlashPopup(): Element | null {
 function positionAboveInput(inputEl: Element) {
   const p = getPopup();
   const rect = inputEl.getBoundingClientRect();
-  const popupWidth = Math.max(340, rect.width);
+  const popupWidth = Math.min(rect.width, Math.round(window.innerWidth * 0.35));
   const popupHeight = Math.min(320, visibleTools.length * 56 + 36);
 
-  // Check if a native slash popup is visible — position beside it if so
+  // On ChatGPT/Copilot: check for native slash popup and position beside it.
+  // Fallback: anchor to right edge of input so we don't overlap native menus
+  // which typically appear left/center above the input.
   const native = findNativeSlashPopup();
   if (native) {
     const nr = native.getBoundingClientRect();
-    // Try right of native popup first
     const rightEdge = nr.right + 8 + popupWidth;
     if (rightEdge <= window.innerWidth) {
       p.style.left = `${nr.right + 8}px`;
     } else {
-      // Place left of native popup
       p.style.left = `${Math.max(0, nr.left - popupWidth - 8)}px`;
     }
     p.style.top = `${nr.top}px`;
     p.style.width = `${popupWidth}px`;
+    p.style.bottom = 'auto';
+    return;
+  }
+  // No native popup found — on ChatGPT/Copilot anchor to right side of input.
+  // Use 30% of viewport width, capped to input width, min 260px.
+  if (location.hostname.includes('chatgpt.com') || location.hostname.includes('github.com')) {
+    const ourWidth = Math.max(260, Math.min(Math.round(window.innerWidth * 0.3), rect.width));
+    const rightAnchor = Math.min(rect.right - ourWidth, window.innerWidth - ourWidth - 8);
+    p.style.left = `${Math.max(0, rightAnchor)}px`;
+    p.style.width = `${ourWidth}px`;
+    const top = rect.top - popupHeight - 8;
+    p.style.top = top > 0 ? `${top}px` : `${rect.bottom + 8}px`;
     p.style.bottom = 'auto';
     return;
   }
