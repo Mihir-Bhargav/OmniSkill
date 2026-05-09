@@ -1,7 +1,6 @@
 
 <div align="center">
-  <img src="extension/chrome-extension/public/icon-128.png" alt="OmniSkill Logo" width="80" height="80">
-  <h1>OmniSkill</h1>
+  <img src="extension/chrome-extension/public/banner.png" alt="OmniSkill — Get /skills across platforms" width="100%">
 </div>
 
 <p align="center">
