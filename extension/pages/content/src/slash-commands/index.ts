@@ -76,10 +76,14 @@ function isGitHubCopilot(): boolean {
   return location.hostname.includes('github.com');
 }
 
+function isLovable(): boolean {
+  return location.hostname.includes('lovable.dev');
+}
+
 function isTextareaEditor(): boolean {
-  // ChatGPT (ProseMirror) and GitHub Copilot (textarea) both use _pendingSkill
-  // side-state rather than DOM pill — execCommand truncates large content on both.
-  return isChatGPT() || isGitHubCopilot();
+  // Platforms with real <textarea> inputs use _pendingSkill side-state instead of DOM pill.
+  // ChatGPT uses ProseMirror (contentEditable) but also routes through _pendingSkill.
+  return isChatGPT() || isGitHubCopilot() || isLovable();
 }
 
 async function setInputText(el: Element, text: string): Promise<void> {
@@ -88,6 +92,7 @@ async function setInputText(el: Element, text: string): Promise<void> {
     const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
     setter ? setter.call(el, text) : (el.value = text);
     el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
   } else if (isChatGPT()) {
     // ProseMirror needs <p> per line — plain text nodes collapse newlines into one block
     const htmlEl = el as HTMLElement;
@@ -132,15 +137,25 @@ function submitInput(el: Element): void {
       }));
     }
   } else if (isGitHubCopilot()) {
-    // GitHub Copilot doesn't submit on textarea keydown — click the send button
     const sendBtn = document.querySelector<HTMLButtonElement>(
       'button[aria-labelledby*="Send"], button:has(.octicon-paper-airplane), button[type="submit"]'
     );
     if (sendBtn && !sendBtn.disabled) {
       sendBtn.click();
     } else {
-      // Fallback: Enter on the textarea
       el.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true,
+      }));
+    }
+  } else if (isLovable()) {
+    // Lovable uses a round send button — click it directly
+    const sendBtn = document.querySelector<HTMLButtonElement>(
+      'button.rounded-full.bg-foreground, button[type="submit"], button[aria-label*="Send"], button[title*="Send"]'
+    );
+    if (sendBtn && !sendBtn.disabled) {
+      sendBtn.click();
+    } else {
+      el.closest('form')?.dispatchEvent(new KeyboardEvent('keydown', {
         key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true,
       }));
     }
