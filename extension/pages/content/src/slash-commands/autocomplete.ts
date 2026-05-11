@@ -209,9 +209,18 @@ export function show(inputEl: Element, query: string, selectCallback: (name: str
   currentQuery = query;
 
   const all: Tool[] = useToolStore.getState().availableTools as Tool[];
+
+  // Show only platform-relevant skills:
+  // - On lovable.dev: only lovable-* skills
+  // - Everywhere else: exclude lovable-* skills
+  const isLovable = location.hostname.includes('lovable.dev');
+  const platformTools = all.filter(t =>
+    isLovable ? t.name.startsWith('lovable-') : !t.name.startsWith('lovable-')
+  );
+
   visibleTools = query
-    ? all.filter(t => t.name.toLowerCase().includes(query.toLowerCase()))
-    : all;
+    ? platformTools.filter(t => t.name.toLowerCase().includes(query.toLowerCase()))
+    : platformTools;
 
   if (visibleTools.length === 0 && query.length > 0) {
     // No matches — hide unless query is very short
