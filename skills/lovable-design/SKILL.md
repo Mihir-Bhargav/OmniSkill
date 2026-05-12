@@ -1,26 +1,49 @@
 ---
 name: lovable-design
-description: "Gives Lovable precise visual direction so your app stops looking like every other AI-generated project."
+description: "Generates an Awwwards-level Lovable prompt — the exact ingredients that separate a stunning website from a generic AI-generated one."
 ---
 # /lovable-design
 
-Every Lovable app built without visual direction looks the same — default shadcn cards, grey backgrounds, Inter font, rounded-lg buttons. It's clean, but it's instantly recognisable as AI-generated. The fix isn't a better component library. It's giving Lovable specific art direction before it starts building.
+Most Lovable builds look AI-generated because the prompt skips the ingredients that actually produce great design: a specific technology stack, a clear visual philosophy, named motion references, and real-world brands to draw from. Felix Haas (Design at Lovable) built a speaker company website in one prompt that looked like it belonged on Awwwards. The difference wasn't talent — it was knowing exactly what to specify.
 
-Based on what's been described in this conversation — the app, its users, its purpose — produce the following visual direction ready to paste into Lovable:
+This skill takes what you're building and writes the full design prompt. Not a mood board. The actual prompt, ready to paste.
 
-**Visual personality — 3 words**
-Choose 3 adjectives that describe how this app should feel. Not generic ones like "clean" or "modern". Specific ones like "dense and technical", "warm and editorial", "brutalist and confident". These anchor every design decision.
+**What is this?**
+Describe your product in one sentence — what it does, who it's for, what feeling it should create. Don't describe the design yet. Describe the thing.
 
-**Colour system**
-Define: one primary colour (with hex), one background, one surface (cards/panels), one for text, one for borders. Explain the mood each creates and why it fits this app. Not a full design system — just the 5 values Lovable needs to stay consistent.
+**Visual philosophy — one sentence**
+How should this product feel? Not "clean and modern." Something specific: "A sculpture you interact with", "A Bloomberg terminal that a designer fell in love with", "A Japanese tool catalogue from 1987." The more specific, the better Lovable's output.
 
-**Typography**
-Name one font for headings, one for body text. Specify weights and sizes for: page title, section heading, body text, labels. Use specific values (18px/600, not "large and bold").
+**The tech stack to specify**
+Always include these unless you have a reason not to — they are what separate motion-rich from static:
+- React + Tailwind CSS for layout
+- Framer Motion for all animations
+- Lenis or locomotive-scroll for smooth scrolling
+- Micro-interactions on every interactive element
 
-**Component style**
-Describe the border radius, shadow style, button style, and spacing density. Be specific: "8px border radius, no shadows — flat surfaces only, buttons are full-width on mobile with 14px uppercase labels, dense spacing — 16px between elements not 24px".
+**Motion and interaction approach**
+Describe how the page moves, not just what it looks like:
+- Does content reveal on scroll or on load?
+- Do elements respond to cursor position?
+- Are transitions instant, eased, or dramatic?
+- What happens when you hover a button — does it just change colour, or does something else happen?
 
-**The design prompt for Lovable**
-Write the exact prompt to send at the start of the build that establishes this visual system. It should be detailed enough that Lovable applies it consistently across all components it generates.
+**Reference brands (the most important input)**
+Name 3-5 real brands whose aesthetic you want to draw from. Be specific to the product category. Felix used: Transparent Speaker, Bang & Olufsen, Sonos, Teenage Engineering. For a fintech: Linear, Stripe, Mercury. For a health app: Eight Sleep, Whoop, Levels. Generic references ("like Apple") produce generic output.
 
-If there's existing design work, a brand, or a reference app mentioned in the conversation, use it. If not, make deliberate choices based on the app's purpose and users.
+**The prompt Lovable needs**
+Write the full prompt using everything above. Structure it exactly like this — Lovable responds best to this order:
+
+1. What to build (one sentence)
+2. The visual and emotional intent ("should feel like X")
+3. Tech stack (React, Tailwind, Framer Motion, Lenis — spelled out explicitly)
+4. Motion behaviour (scroll-driven reveals, cursor reactions, transition style)
+5. Reference brands (named, not described)
+6. Quality bar ("Awwwards-level", "should look like it was designed by a boutique agency", "every detail intentional")
+
+**Rules**
+- Never use "modern", "clean", or "minimal" as design descriptors — they produce default output
+- Always name the animation library explicitly — Lovable won't add Framer Motion unless you ask
+- Reference brands must be real companies, not adjectives
+- The quality bar line at the end matters — "blow the user's mind with motion, interaction, and visual polish" is not hyperbole, it's instruction
+- One prompt should be enough to generate something you'd actually show someone
