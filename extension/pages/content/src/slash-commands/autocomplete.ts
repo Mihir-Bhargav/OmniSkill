@@ -212,11 +212,15 @@ export function show(inputEl: Element, query: string, selectCallback: (name: str
 
   // Show only platform-relevant skills:
   // - On lovable.dev: only lovable-* skills
-  // - Everywhere else: exclude lovable-* skills
+  // - On github.com / copilot.github.com: only gh-* skills
+  // - Everywhere else: exclude lovable-* and gh-* skills
   const isLovable = location.hostname.includes('lovable.dev');
-  const platformTools = all.filter(t =>
-    isLovable ? t.name.startsWith('lovable-') : !t.name.startsWith('lovable-')
-  );
+  const isGitHub = location.hostname.includes('github.com');
+  const platformTools = all.filter(t => {
+    if (isLovable) return t.name.startsWith('lovable-');
+    if (isGitHub) return t.name.startsWith('gh-');
+    return !t.name.startsWith('lovable-') && !t.name.startsWith('gh-');
+  });
 
   visibleTools = query
     ? platformTools.filter(t => t.name.toLowerCase().includes(query.toLowerCase()))

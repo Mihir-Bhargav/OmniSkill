@@ -1,113 +1,163 @@
 
 <div align="center">
-  <img src="extension/chrome-extension/public/banner.png" alt="OmniSkill — Get /skills across platforms" width="100%">
+  <img src="extension/chrome-extension/public/banner.png" alt="OmniSkill — Run local /skills across platforms" width="100%">
 </div>
 
 <p align="center">
-Run local AI skills from any chat interface — Gemini, ChatGPT, Perplexity, Grok, AI Studio, and more.
+Run local AI skills from any chat interface (Lovable, Gemini, ChatGPT, and more) — without copy-pasting prompts.
 </p>
 
 ---
 
-## What is OmniSkill?
+## What Is OmniSkill?
 
-OmniSkill is a Chrome extension that bridges your local skill library to any AI chat platform. Type `/skill-name` in any supported chat input, select from the autocomplete popup, and the skill's full prompt is sent seamlessly — no copy-pasting, no switching windows.
+OmniSkill has two parts:
 
-It also integrates with the Model Context Protocol (MCP), allowing AI platforms to detect, execute, and receive results from local MCP tools.
+- **A small local app** (Python) that loads your skills from disk.
+- **A Chrome extension** that lets you type `/skill-name` inside supported AI chat sites to insert the skill instantly.
 
-## Supported Platforms
+Your skills live locally in `skills/` as simple `SKILL.md` files.
 
-- [Google Gemini](https://gemini.google.com/)
-- [ChatGPT](https://chatgpt.com/)
-- [Google AI Studio](https://aistudio.google.com/)
-- [Perplexity](https://perplexity.ai/)
-- [Grok](https://grok.com/)
-- [OpenRouter Chat](https://openrouter.ai/chat)
-- [DeepSeek](https://chat.deepseek.com/)
-- [T3 Chat](https://t3.chat/)
-- [GitHub Copilot](https://github.com/copilot)
-- [Mistral AI](https://chat.mistral.ai/)
-- [Kimi](https://kimi.com/)
-- [Qwen Chat](https://chat.qwen.ai/)
-- [Z Chat](https://chat.z.ai/)
+---
 
-## Slash Command Skills
+## Quick Start (Windows, Non‑Technical)
 
-Type `/` in any supported chat input to open the skill autocomplete:
+### What you need
 
-1. Type `/skill-name` — autocomplete popup appears
-2. Arrow keys or mouse to navigate, Enter or Tab to select
-3. The skill prompt is inserted as a blue pill in the input
-4. Press Enter — the full skill content is sent to the AI naturally
+- Google Chrome
+- Python 3.10+ installed
+- This repository on your computer (download ZIP, then extract)
 
-Skills live in `C:\Users\<you>\OmniSkill\skills\` as SKILL.md files. The OmniSkill tray server loads them automatically on startup.
+### 1) Install OmniSkill (one time)
 
-## MCP Tool Integration
+Open **PowerShell** in the repo folder and run:
 
-OmniSkill connects to a local MCP server (default: `http://localhost:3006/sse`) and enables AI platforms to:
+```bash
+python -m pip install -e .
+```
 
-- Detect MCP tool calls in AI responses
-- Execute tools with one click (or automatically)
-- Insert tool results back into the conversation
+### 2) Start OmniSkill (tray app)
 
-### Starting the OmniSkill server
+Run:
 
 ```bash
 python -m omniskill tray --skills-dir ./skills --port 3006
 ```
 
-Or use the Windows startup shortcut in `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\OmniSkill.vbs` to launch it automatically on login.
+What to look for:
 
-### Connecting the extension
+- An OmniSkill icon appears in your Windows system tray (near the clock).
+- A log file appears in the repo folder: `omniskill-tray.log`
 
-1. Open a supported AI platform
-2. Click the server status indicator in the OmniSkill sidebar (shows "Disconnected")
-3. Enter the server URL — default: `http://localhost:3006/sse`
-4. Click Connect
-
-Transport options:
-- SSE: `http://localhost:3006/sse`
-- Streamable HTTP: `http://localhost:3006/mcp`
-- WebSocket: `ws://localhost:3006/message`
-
-## Key Features
-
-- **Slash command skills** — `/skill-name` autocomplete with instant injection
-- **MCP tool detection** — automatically detects tool calls in AI responses
-- **One-click execution** — run tools from a card UI rendered inline
-- **Auto-execute / auto-submit** — fully automated tool call loops
-- **Multi-platform** — 13 AI chat platforms supported
-- **AI Studio system prompt injection** — skills injected directly into system instructions
-
-## Manual Installation
-
-1. Download or build the extension (see Development below)
-2. Go to `chrome://extensions/` in Chrome
-3. Enable **Developer mode**
-4. Click **Load unpacked** and select the `dist/` folder
-
-## Development
-
-### Prerequisites
-
-- Node.js (v18+)
-- pnpm
-
-### Setup
+Optional (recommended): start OmniSkill automatically when you log in:
 
 ```bash
-# Install dependencies
-pnpm install
-
-# Build for production
-pnpm base-build
-
-# Start development server with hot reload
-pnpm dev
+python -m omniskill tray --skills-dir ./skills --port 3006 --install-startup
 ```
 
-Built output lands in `extension/dist/`. Load that folder as an unpacked extension.
+### 3) Install the Chrome extension (no building required)
+
+1. Open Chrome and go to `chrome://extensions/`
+2. Turn on **Developer mode** (top right)
+3. Click **Load unpacked**
+4. Select this folder: `extension/dist`
+
+### 4) Connect the extension to your local OmniSkill server (one time)
+
+1. Open a supported site, for example `https://lovable.dev/`
+2. Open the OmniSkill sidebar
+3. Click the server status (it may say “Disconnected”)
+4. Enter this server URL:
+
+`http://localhost:3006/sse`
+
+5. Click **Connect**
+
+---
+
+## Using Skills (the only thing you need to remember)
+
+1. Click the chat input box
+2. Type `/` and start typing a skill name
+3. Choose from the popup (Enter or Tab)
+4. Add optional context (one sentence is enough)
+5. Press Enter to send
+
+On `lovable.dev`, OmniSkill intentionally shows only `lovable-*` skills in autocomplete so it stays focused.
+
+---
+
+## Adding Or Editing Skills
+
+Skills live in `skills/<skill-name>/SKILL.md`.
+
+- Edit a skill file
+- In any connected chat, run `/omniskill__reload_skills` to reload skills without restarting OmniSkill
+
+---
+
+## Troubleshooting
+
+If the extension won’t connect:
+
+- Confirm OmniSkill is running (tray icon exists)
+- Confirm the URL is exactly `http://localhost:3006/sse`
+- Open `omniskill-tray.log` and search for “Error”
+
+If `/` doesn’t show the OmniSkill popup:
+
+- Refresh the page
+- Check `chrome://extensions/` and make sure OmniSkill is enabled
+- Confirm you loaded `extension/dist` (not `extension/`)
+
+If the port is already in use:
+
+- Start OmniSkill on a different port, for example:
+
+```bash
+python -m omniskill tray --skills-dir ./skills --port 3007
+```
+
+- Then connect the extension to `http://localhost:3007/sse`
+
+---
+
+## Supported Platforms
+
+Current host permissions include:
+
+- Lovable (`lovable.dev`)
+- Google Gemini (`gemini.google.com`)
+- ChatGPT (`chatgpt.com`, `chat.openai.com`)
+- Google AI Studio (`aistudio.google.com`)
+- GitHub Copilot chat (`github.com`, `copilot.github.com`)
+- DeepSeek (`chat.deepseek.com`)
+- Grok (`grok.com`)
+- Perplexity (`perplexity.ai`)
+
+---
+
+## Development (Optional)
+
+If you want to rebuild the extension yourself:
+
+```bash
+cd extension
+pnpm install
+pnpm base-build
+```
+
+Then load `extension/dist` in `chrome://extensions/`.
+
+To run the server without the tray:
+
+```bash
+python -m omniskill sse --skills-dir ./skills --port 3006
+```
+
+---
 
 ## License
 
-MIT — see LICENSE for details.
+MIT — see `LICENSE`.
+

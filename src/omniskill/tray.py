@@ -8,6 +8,7 @@ import logging
 import sys
 import threading
 from pathlib import Path
+from logging.handlers import RotatingFileHandler
 
 import pystray
 from PIL import Image, ImageDraw
@@ -16,8 +17,17 @@ log = logging.getLogger("omniskill.tray")
 
 # Always log to a file — pythonw has no console
 _LOG_FILE = Path(__file__).parent.parent.parent / "omniskill-tray.log"
+_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+# Prevent unbounded growth: keep a few small rotated logs.
+_tray_log_handler = RotatingFileHandler(
+    str(_LOG_FILE),
+    maxBytes=2_000_000,
+    backupCount=3,
+    encoding="utf-8",
+)
 logging.basicConfig(
-    filename=str(_LOG_FILE),
+    handlers=[_tray_log_handler],
     level=logging.DEBUG,
     format="%(asctime)s %(name)s %(levelname)s %(message)s",
     force=True,

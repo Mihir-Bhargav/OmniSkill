@@ -266,7 +266,9 @@ export async function applicationInit(): Promise<void> {
 
     // Emit initialization complete event
     eventBus.emit('app:initialized', {
-      version: '1.0.0', // TODO: Get from package.json or environment
+      version: (typeof chrome !== 'undefined' && chrome.runtime?.getManifest)
+        ? chrome.runtime.getManifest().version
+        : 'unknown',
       timestamp: Date.now(),
       initializationTime,
     });
