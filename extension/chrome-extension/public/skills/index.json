@@ -1,0 +1,286 @@
+[
+  {
+    "name": "acquisition-case",
+    "description": "Build an M&A investment case with stress-tested valuation and a narrative that survives board scrutiny — not just a number with a multiple attached."
+  },
+  {
+    "name": "angel-diligence",
+    "description": "Run a structured 30-minute angel diligence session that catches the red flags gut feeling reliably misses."
+  },
+  {
+    "name": "attrition-audit",
+    "description": "Synthesize turnover data and culture signals to find the root causes of attrition — not the exit survey answers, which are almost always sanitized."
+  },
+  {
+    "name": "brand-positioning",
+    "description": "Build a brand positioning framework with competitive differentiation that's actually true, ownable, and impossible for competitors to copy."
+  },
+  {
+    "name": "candidate-pitch",
+    "description": "Uncover a candidate's actual career priorities and structure an offer that lands — moves beyond resume recitation to the motivations that determine yes or no."
+  },
+  {
+    "name": "case-formulation",
+    "description": "Build a collaborative case formulation that maps the maintaining loop, gives the client a usable map, and makes session work translate to real-world behavior change."
+  },
+  {
+    "name": "cloud-architecture",
+    "description": "Design a cloud architecture for a specific workload with explicit cost, operational burden, and tradeoff analysis — so you ship the right system, not the fashionable one."
+  },
+  {
+    "name": "coaching-diagnosis",
+    "description": "Diagnose the repeating pattern beneath a leader's stated problem, find the belief driving it, and design a coaching engagement around the shift that changes behavior."
+  },
+  {
+    "name": "cold-sequence",
+    "description": "Craft a personalized 5-touch cold outreach sequence for a specific prospect — forces positioning work that separates 1% reply rates from 3-5%."
+  },
+  {
+    "name": "community-constitution",
+    "description": "Design community guidelines and an enforcement framework that makes moderation decisions consistent, defensible, and 80% faster."
+  },
+  {
+    "name": "competitive-positioning",
+    "description": "Develop positioning that changes the buyer's economics — not a feature list that's indistinguishable from every competitor's one-pager."
+  },
+  {
+    "name": "content-strategy",
+    "description": "Design a content topic and series targeting a specific buyer stage with pipeline metrics attached — so content investment produces revenue, not just traffic."
+  },
+  {
+    "name": "contract-risk",
+    "description": "Extract real financial and operational risks from a contract and produce a prioritized negotiation brief — so you walk in knowing what to fight for and what to concede."
+  },
+  {
+    "name": "deal-analysis",
+    "description": "Analyze a real estate deal with a stress-tested pro forma that surfaces the assumption that breaks it and enables a fast, defensible yes/no."
+  },
+  {
+    "name": "design-brief",
+    "description": "Convert raw user research into an actionable design brief that forces signal from noise and drives product priority decisions."
+  },
+  {
+    "name": "engagement-design",
+    "description": "Scope a consulting engagement from initial conversation to proposal-ready SOW, with scope creep and unprofitable assumptions killed before signing."
+  },
+  {
+    "name": "engineering-strategy",
+    "description": "Build a technical strategy and multi-quarter roadmap that translates tech debt into product velocity cost — so it actually gets funded."
+  },
+  {
+    "name": "episode-architecture",
+    "description": "Transform a raw recorded episode into a structured show asset with narrative momentum, chapter markers, and the one moment that drives shares."
+  },
+  {
+    "name": "exec-brief",
+    "description": "Synthesize a week of cross-functional inputs into a 2-page CEO brief — surfaces real issues and stuck decisions, not status theater."
+  },
+  {
+    "name": "feedback-diagnosis",
+    "description": "Diagnose why a team member is underperforming and structure a conversation that produces behavioral change — not defensiveness, not vague discomfort."
+  },
+  {
+    "name": "forecast-assumptions",
+    "description": "Build a forecast that documents key assumptions, stress-tests them, and surfaces what must be true — so the model survives board scrutiny instead of collapsing under the first question."
+  },
+  {
+    "name": "gh-adr",
+    "description": "Writes an Architecture Decision Record — captures the decision, the context, the alternatives, and the consequences."
+  },
+  {
+    "name": "gh-api-design",
+    "description": "Designs an API with explicit decisions on contracts, versioning, errors, and the mistakes that are hard to undo."
+  },
+  {
+    "name": "gh-breaking-changes",
+    "description": "Audits a diff or change for everything that could break callers, dependents, consumers, or existing data."
+  },
+  {
+    "name": "gh-code-review",
+    "description": "Reviews code systematically — logic, security, performance, edge cases, and maintainability."
+  },
+  {
+    "name": "gh-db-migration",
+    "description": "Reviews a database migration for safety — data loss risk, lock contention, rollback path, and deployment order."
+  },
+  {
+    "name": "gh-dependency-audit",
+    "description": "Audits project dependencies for security vulnerabilities, abandonment, and hidden upgrade risk."
+  },
+  {
+    "name": "gh-feature-flag",
+    "description": "Designs a feature flag rollout plan — targeting, graduation criteria, and the cleanup you'll actually do."
+  },
+  {
+    "name": "gh-incident-postmortem",
+    "description": "Turns an incident into a structured postmortem that finds the real cause and prevents recurrence."
+  },
+  {
+    "name": "gh-onboarding-doc",
+    "description": "Writes the onboarding documentation a new engineer actually needs to be productive — not a list of tools to install."
+  },
+  {
+    "name": "gh-performance-audit",
+    "description": "Finds the performance problems in code that will only appear at scale — before they appear in production."
+  },
+  {
+    "name": "gh-pr-description",
+    "description": "Writes a PR description that actually tells reviewers what changed, why, and what to watch out for."
+  },
+  {
+    "name": "gh-refactor-plan",
+    "description": "Produces a structured plan for refactoring a file, module, or system before touching a line of code."
+  },
+  {
+    "name": "gh-release-notes",
+    "description": "Writes release notes that tell users what changed and why they should care — not a git log summary."
+  },
+  {
+    "name": "gh-security-hardening",
+    "description": "Goes beyond finding bugs — produces a hardening plan that raises the baseline security posture of a system."
+  },
+  {
+    "name": "gh-tech-debt",
+    "description": "Audits a codebase area for tech debt, prioritises it by real cost, and produces a paydown plan."
+  },
+  {
+    "name": "gh-test-coverage",
+    "description": "Identifies the test cases that are missing and would actually catch real bugs — not just increase coverage numbers."
+  },
+  {
+    "name": "growth-experiment",
+    "description": "Identify the true conversion bottleneck and design an experiment that addresses root cause — the difference between a 2% button-color lift and a 10x funnel fix."
+  },
+  {
+    "name": "health-diagnostic",
+    "description": "Run a customer health diagnostic that surfaces churn risk 90 days before renewal — so you're saving accounts, not watching them leave."
+  },
+  {
+    "name": "idea-validation",
+    "description": "Identify the assumption that kills your idea if wrong, design 3-4 tests that produce real signal, and build a 2-week go/no-go playbook — before writing a line of code."
+  },
+  {
+    "name": "investment-memo",
+    "description": "Synthesize diligence on a startup into a go/no-go investment memo — forces the uncomfortable questions that separate conviction from vibes."
+  },
+  {
+    "name": "lovable-checkpoint",
+    "description": "Mid-build health check — tells you what's working, what's silently broken, and whether it's safe to keep building."
+  },
+  {
+    "name": "lovable-cleanup",
+    "description": "Refactors the codebase before it gets too messy for Lovable to work with effectively."
+  },
+  {
+    "name": "lovable-design",
+    "description": "Gives Lovable precise visual direction so your app stops looking like every other AI-generated project."
+  },
+  {
+    "name": "lovable-plan",
+    "description": "Turns your app idea into a structured plan before you write your first Lovable prompt."
+  },
+  {
+    "name": "lovable-prompt",
+    "description": "Rewrites what you want to say into a precise, safe Lovable prompt that won't break what's working."
+  },
+  {
+    "name": "lovable-security",
+    "description": "Audits your Lovable app for the security vulnerabilities that vibe-coded apps almost always ship with."
+  },
+  {
+    "name": "lovable-ship",
+    "description": "Pre-ship checklist — finds everything that would embarrass you when real users try your app."
+  },
+  {
+    "name": "lovable-unstuck",
+    "description": "Breaks the doom loop — diagnoses why Lovable keeps failing to fix the same bug and tells you what to do next."
+  },
+  {
+    "name": "marketing-audit",
+    "description": "Trace actual pipeline to actual spend — not last-touch attribution — and find which channels you're over-investing in and which you're starving."
+  },
+  {
+    "name": "materiality-assessment",
+    "description": "Build a materiality assessment that connects ESG topics to actual business value — defensible to investors, not just PR-friendly."
+  },
+  {
+    "name": "metric-diagnosis",
+    "description": "Diagnose why a metric shifted and build a narrative that makes stakeholders act — turns 'retention dropped 2%' into a specific cause with a specific fix."
+  },
+  {
+    "name": "ml-problem-definition",
+    "description": "Validate whether ML is the right solution before building the model — so you don't spend months on a prediction nobody uses."
+  },
+  {
+    "name": "newsletter-strategy",
+    "description": "Analyze newsletter performance data and produce next month's editorial calendar — grounded in audience behavior, not gut feel."
+  },
+  {
+    "name": "objection-map",
+    "description": "Map the psychological blocks stopping prospects from buying, then write the copy that shifts the specific belief blocking conversion."
+  },
+  {
+    "name": "ops-root-cause",
+    "description": "Analyze an operational problem to find systemic root cause and design an intervention — stops the team from fixing symptoms while the real issue compounds."
+  },
+  {
+    "name": "partnership-eval",
+    "description": "Evaluate a partnership opportunity with a go/no-go recommendation and a negotiation brief — before you've wasted three months on discovery calls."
+  },
+  {
+    "name": "policy-brief",
+    "description": "Translate research evidence into a policy recommendation memo that accounts for political feasibility and makes a specific, ownable ask."
+  },
+  {
+    "name": "reg-strategy",
+    "description": "Build a precedent-grounded regulatory strategy for a new product — so you know exactly what the agency will ask before they ask it."
+  },
+  {
+    "name": "reporting-plan",
+    "description": "Build a reporting plan that locks the claim, sequences sources, and stress-tests the narrative before you invest months chasing a story that doesn't hold."
+  },
+  {
+    "name": "research-narrative",
+    "description": "Construct the paper narrative that makes your contribution unmissable to reviewers — before you write the methods section."
+  },
+  {
+    "name": "research-recommendation",
+    "description": "Convert qualitative research findings into a single actionable design recommendation — so findings ship instead of sitting in a Confluence page nobody reads."
+  },
+  {
+    "name": "revenue-stack-audit",
+    "description": "Audit and unify data definitions across your sales and CS stack so leadership stops making decisions on fiction."
+  },
+  {
+    "name": "roadmap-tradeoffs",
+    "description": "Define a quarterly roadmap with explicit tradeoffs tied to business outcomes — turns a wishlist into a defensible bet you can communicate upward and to customers."
+  },
+  {
+    "name": "security-risk",
+    "description": "Translate technical vulnerabilities into a business-impact risk assessment that gets resources approved — not filed and forgotten."
+  },
+  {
+    "name": "stakeholder-map",
+    "description": "Map every decision-maker in a complex deal, surface their conflicts, and sequence consensus-building so the deal doesn't die from a surprise no."
+  },
+  {
+    "name": "strategy-to-roadmap",
+    "description": "Translate a strategic vision into a 12-month operational roadmap with OKRs, resource allocation, and the organizational friction points that will kill it."
+  },
+  {
+    "name": "supply-strategy",
+    "description": "Design a supply chain strategy that maps vulnerabilities explicitly and treats resilience as a deliberate cost-benefit decision, not an afterthought."
+  },
+  {
+    "name": "talent-strategy",
+    "description": "Build a talent strategy tied to specific business outcomes with ROI — so HR gets a seat at the strategy table instead of a budget cut."
+  },
+  {
+    "name": "theory-of-change",
+    "description": "Build a theory of change and measurement framework that proves your program causes the outcome — not just that you ran it."
+  },
+  {
+    "name": "validation-interview",
+    "description": "Design a customer interview that validates or kills a core product assumption — extracts real purchase intent instead of polite enthusiasm."
+  }
+]

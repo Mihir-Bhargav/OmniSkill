@@ -60,6 +60,26 @@ let isConnected: boolean = false;
 let connectionCount: number = 0;
 let isInitialized: boolean = false;
 
+// Bundled skills loaded from the extension's static assets
+let bundledTools: any[] = [];
+
+async function loadBundledSkills(): Promise<any[]> {
+  try {
+    const url = chrome.runtime.getURL('skills/index.json');
+    const res = await fetch(url);
+    const index: { name: string; description: string }[] = await res.json();
+    return index.map(s => ({ name: s.name, description: s.description, input_schema: {} }));
+  } catch (e) {
+    logger.warn('[Background] Failed to load bundled skills:', e);
+    return [];
+  }
+}
+
+function mergeTools(bundled: any[], server: any[]): any[] {
+  const serverNames = new Set(server.map((t: any) => t.name));
+  return [...bundled.filter((t: any) => !serverNames.has(t.name)), ...server];
+}
+
 /**
  * Initialize server URL from Chrome storage
  * Replaces mcpInterface initialization functionality
@@ -251,6 +271,13 @@ async function initializeExtension() {
   // Wait for initialization to complete
   await waitForInitialization();
 
+  // Load bundled skills and broadcast immediately — works with no server running
+  bundledTools = await loadBundledSkills();
+  if (bundledTools.length > 0) {
+    broadcastToolsUpdateToContentScripts(bundledTools);
+    logger.debug(`[Background] Broadcast ${bundledTools.length} bundled skills`);
+  }
+
   // Get the loaded server URL
   const serverUrl = getServerUrl();
   logger.debug('Background script initialized with server URL:', serverUrl);
@@ -287,17 +314,18 @@ async function initializeExtension() {
     
     logger.debug(`Initial connection status broadcast: ${isConnected ? 'connected' : 'disconnected'}`);
     
-    // If connected, also broadcast tools
+    // If connected, also broadcast tools merged with bundled skills
     if (isConnected) {
       try {
         logger.debug('[Background] Server connected, fetching and broadcasting initial tools...');
         const primitives = await getPrimitivesWithBackwardsCompatibility(serverUrl, false, connectionType);
         logger.debug(`Retrieved ${primitives.length} primitives for initial broadcast`);
-        
-        const tools = normalizeTools(primitives);
-        logger.debug(`Broadcasting ${tools.length} normalized initial tools`);
-        
-        broadcastToolsUpdateToContentScripts(tools);
+
+        const serverTools = normalizeTools(primitives);
+        const merged = mergeTools(bundledTools, serverTools);
+        logger.debug(`Broadcasting ${merged.length} tools (${bundledTools.length} bundled + ${serverTools.length} server) for initial broadcast`);
+
+        broadcastToolsUpdateToContentScripts(merged);
       } catch (error) {
         logger.warn('[Background] Error broadcasting initial tools:', error);
       }
@@ -337,16 +365,17 @@ async function tryConnectToServer(uri: string, type: ConnectionType = connection
     updateConnectionStatus(true);
     broadcastConnectionStatusToContentScripts(true);
     
-    // Also broadcast available tools after successful connection
+    // Also broadcast available tools after successful connection, merged with bundled skills
     try {
       logger.debug('[Background] Connection successful, fetching and broadcasting tools...');
       const primitives = await getPrimitivesWithBackwardsCompatibility(uri, true, type);
       logger.debug(`Retrieved ${primitives.length} primitives after connection`);
-      
-      const tools = normalizeTools(primitives);
-      logger.debug(`Broadcasting ${tools.length} normalized tools after successful connection`);
-      
-      broadcastToolsUpdateToContentScripts(tools);
+
+      const serverTools = normalizeTools(primitives);
+      const merged = mergeTools(bundledTools, serverTools);
+      logger.debug(`Broadcasting ${merged.length} tools (${bundledTools.length} bundled + ${serverTools.length} server) after connection`);
+
+      broadcastToolsUpdateToContentScripts(merged);
     } catch (toolsError) {
       logger.warn('[Background] Error broadcasting tools after connection:', toolsError);
     }
@@ -495,10 +524,13 @@ chrome.runtime.onInstalled.addListener(async details => {
     // Collect demographic data for user properties
     const demographicData = collectDemographicData();
 
-    // Set install date and user properties for Remote Config targeting
+    // Set install date and user properties for Remote Config targeting.
+    // Also seed the default server URL so auto-connect works without manual config.
     await chrome.storage.local.set({
       installDate,
       version: currentVersion,
+      mcpServerUrl: DEFAULT_SSE_URL,
+      mcpConnectionType: DEFAULT_CONNECTION_TYPE,
       userProperties: {
         extension_version: currentVersion,
         install_date: installDate,
@@ -732,20 +764,19 @@ async function handleMcpMessage(
       case 'mcp:get-tools': {
         const { forceRefresh = false } = payload as GetToolsRequest;
         logger.debug(`Getting tools (forceRefresh: ${forceRefresh})`);
-        
+
         try {
           const primitives = await getPrimitivesWithBackwardsCompatibility(getServerUrl(), forceRefresh, connectionType);
           logger.debug(`Retrieved ${primitives.length} primitives from server`);
-          
-          // Use the helper function to normalize tools with proper schema handling
-          const tools = normalizeTools(primitives);
-          logger.debug(`Returning ${tools.length} normalized tools to content script`);
-          
-          result = tools;
+
+          const serverTools = normalizeTools(primitives);
+          const merged = mergeTools(bundledTools, serverTools);
+          logger.debug(`Returning ${merged.length} tools (${bundledTools.length} bundled + ${serverTools.length} server)`);
+
+          result = merged;
         } catch (error) {
-          logger.error('[Background] Error getting tools:', error);
-          // Return empty array instead of throwing to prevent UI crashes
-          result = [];
+          logger.debug('[Background] Server unavailable, returning bundled tools only');
+          result = bundledTools;
         }
         break;
       }

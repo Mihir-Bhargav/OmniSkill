@@ -28,13 +28,26 @@ const _prefetchCache = new Map<string, Promise<string>>();
 // Side-state for textarea-based editors (ChatGPT, GitHub Copilot) where DOM pill can't be used.
 let _pendingSkill: { name: string; content: string } | null = null;
 
+// Fetch skill content — tries the MCP server first, falls back to bundled SKILL.md file.
+async function fetchSkillContent(skillName: string): Promise<string> {
+  if (mcpClient.isReady()) {
+    try {
+      const result = await mcpClient.callTool(skillName, {});
+      return extractText(result);
+    } catch { /* fall through to bundled */ }
+  }
+  const url = chrome.runtime.getURL(`skills/${skillName}/SKILL.md`);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Skill not found: ${skillName}`);
+  return res.text();
+}
+
 function prefetchSkills(skillNames: string[]): void {
   for (const name of skillNames) {
     if (_prefetchCache.has(name)) continue;
-    if (!mcpClient.isReady()) break;
     _prefetchCache.set(
       name,
-      mcpClient.callTool(name, {}).then(extractText).catch(() => {
+      fetchSkillContent(name).catch(() => {
         _prefetchCache.delete(name);
         return '';
       })
@@ -187,7 +200,7 @@ function extractText(result: unknown): string {
 async function loadSkillIntoPill(el: Element, skillName: string): Promise<void> {
   try {
     logMessage(`[SlashCommands] Loading skill /${skillName} into pill`);
-    const contentPromise = _prefetchCache.get(skillName) ?? mcpClient.callTool(skillName, {}).then(extractText);
+    const contentPromise = _prefetchCache.get(skillName) ?? fetchSkillContent(skillName);
     _prefetchCache.delete(skillName);
     const content = await contentPromise;
 
@@ -344,4 +357,75 @@ export function initSlashCommands(): void {
   });
 
   logMessage('[SlashCommands] Ready — type /skill-name to start');
+
+  // First-run banner: shown once after the very first successful connection.
+  // Lets users know / is the trigger without needing to find the sidebar.
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message?.type === 'connection:status-changed' && message?.payload?.isConnected) {
+      showFirstRunBanner();
+    }
+  });
+}
+
+// ── First-run banner ───────────────────────────────────────────────────────────
+
+function showFirstRunBanner(): void {
+  chrome.storage.local.get('omniskillFirstRunDone', (result) => {
+    if (result.omniskillFirstRunDone) return;
+    chrome.storage.local.set({ omniskillFirstRunDone: true });
+
+    const BANNER_ID = 'omniskill-first-run-banner';
+    if (document.getElementById(BANNER_ID)) return;
+
+    const style = document.createElement('style');
+    style.textContent = `
+      #${BANNER_ID} {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 2147483647;
+        background: #1e1e2e;
+        border: 1px solid #313244;
+        border-radius: 10px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+        padding: 12px 16px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 13px;
+        color: #cdd6f4;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        animation: omniskill-fadein 0.2s ease;
+      }
+      #${BANNER_ID} .os-banner-key {
+        background: #313244;
+        border-radius: 5px;
+        padding: 2px 7px;
+        color: #89b4fa;
+        font-weight: 700;
+        font-size: 14px;
+        letter-spacing: 0.02em;
+      }
+      @keyframes omniskill-fadein {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+    `;
+    document.head.appendChild(style);
+
+    const banner = document.createElement('div');
+    banner.id = BANNER_ID;
+    banner.innerHTML = `<span class="os-banner-key">/</span><span>OmniSkill connected — type <strong>/</strong> to use your skills</span>`;
+    document.body.appendChild(banner);
+
+    const dismiss = () => {
+      banner.style.opacity = '0';
+      banner.style.transition = 'opacity 0.2s';
+      setTimeout(() => { banner.remove(); style.remove(); }, 200);
+    };
+
+    banner.addEventListener('click', dismiss);
+    setTimeout(dismiss, 6000);
+  });
 }
