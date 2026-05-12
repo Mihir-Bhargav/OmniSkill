@@ -46,4 +46,5 @@ Write the full prompt using everything above. Structure it exactly like this —
 - Always name the animation library explicitly — Lovable won't add Framer Motion unless you ask
 - Reference brands must be real companies, not adjectives
 - The quality bar line at the end matters — "blow the user's mind with motion, interaction, and visual polish" is not hyperbole, it's instruction
+- No AI-generated images — use real photography, SVG illustrations, or no images at all. Specify this explicitly in the prompt: "no placeholder images, no AI-generated imagery"
 - One prompt should be enough to generate something you'd actually show someone

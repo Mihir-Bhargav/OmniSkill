@@ -61,9 +61,10 @@ export class SidebarPlugin implements AdapterPlugin {
       // Initialize sidebar manager for current site
       await this.initializeSidebarManager();
 
-      // Show sidebar automatically on activation (respects user's last visibility preference)
-      // The showSidebar() method will check stored state and only show if appropriate
-      await this.showSidebar();
+      // On Lovable, keep sidebar hidden by default — it overlaps the editor UI
+      if (!window.location.hostname.includes('lovable.dev')) {
+        await this.showSidebar();
+      }
       
       this.isActive = true;
       logger.debug('Sidebar plugin activated successfully');

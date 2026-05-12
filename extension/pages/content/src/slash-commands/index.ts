@@ -161,14 +161,14 @@ function submitInput(el: Element): void {
       }));
     }
   } else if (isLovable()) {
-    // Lovable uses a round send button — click it directly
+    // Lovable send button — works on both start page and project view (preview open)
     const sendBtn = document.querySelector<HTMLButtonElement>(
-      'button.rounded-full.bg-foreground, button[type="submit"], button[aria-label*="Send"], button[title*="Send"]'
-    );
+      'button.rounded-full.bg-foreground, button[type="submit"], button[aria-label*="Send"], button[title*="Send"], button[data-testid*="send"], button svg[class*="send"]'
+    ) ?? el.closest('form, [class*="chat"], [class*="input-container"]')?.querySelector<HTMLButtonElement>('button:last-of-type');
     if (sendBtn && !sendBtn.disabled) {
       sendBtn.click();
     } else {
-      el.closest('form')?.dispatchEvent(new KeyboardEvent('keydown', {
+      el.dispatchEvent(new KeyboardEvent('keydown', {
         key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true,
       }));
     }

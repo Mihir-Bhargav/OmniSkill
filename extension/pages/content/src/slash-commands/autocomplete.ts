@@ -57,8 +57,9 @@ const CSS = `
   color: #89b4fa;
 }
 #${POPUP_ID} .os-desc {
-  color: #7f849c;
+  color: #cdd6f4;
   font-size: 11.5px;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
